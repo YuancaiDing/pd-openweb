@@ -37,7 +37,7 @@ class DropControlList extends React.Component {
             }}
           >
             <i className={cx('icon mRight10 Font14', 'icon-' + getIconByType(column.type))}></i>
-            <span className="Font13">{column.controlName || (column.type === 22 ? _l('分段') : _l('备注'))}</span>
+            <span className="Font13">{column.controlName || (column.type === 22 ? _l('分割线') : _l('备注'))}</span>
           </li>
         ))}
       </ul>
@@ -247,11 +247,11 @@ class Alias extends React.Component {
                             alias: e.target.value.trim(),
                           });
                         } else if (res === 3) {
-                          alert(_l('工作表别名格式不匹配', 3));
+                          alert(_l('工作表别名格式不匹配'), 3);
                         } else if (res === 2) {
-                          alert(_l('工作表别名已存在，请重新输入', 3));
+                          alert(_l('工作表别名已存在，请重新输入'), 3);
                         } else {
-                          alert(_l('别名修改失败', 3));
+                          alert(_l('别名修改失败'), 3);
                         }
                       });
                   }}

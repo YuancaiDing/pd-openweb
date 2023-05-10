@@ -23,6 +23,7 @@ import { MDCell, NoSearch, NoRecords } from './components';
 
 const StyledFixedTable = styled(FixedTable)`
   font-size: 13px;
+  user-select: text !important;
   .cell {
     background-color: #fff;
     border: 1px solid rgba(0, 0, 0, 0.09) !important;
@@ -30,6 +31,9 @@ const StyledFixedTable = styled(FixedTable)`
     border-top: none !important;
     padding: 7px 6px;
     overflow: hidden;
+    .ghostAngle {
+      display: none;
+    }
     &.highlight,
     &.highlightFromProps {
       background-color: #f5fbff !important;
@@ -37,7 +41,7 @@ const StyledFixedTable = styled(FixedTable)`
     &.grayHover:not(.cellControlErrorStatus) {
       box-shadow: inset 0 0 0 1px #e0e0e0 !important;
     }
-    &.focus:not(.cellControlErrorStatus) {
+    &.focus:not(.cellControlErrorStatus):not(.control-10.isediting):not(.control-11.isediting) {
       box-shadow: inset 0 0 0 2px #2d7ff9 !important;
       z-index: 2;
     }
@@ -63,12 +67,15 @@ const StyledFixedTable = styled(FixedTable)`
   }
   &.showAsZebra {
     .cell.oddRow {
-      background-color: #fafafa !important;
+      background-color: #fafafa;
     }
   }
   &:not(.classic) {
     .cell.hover:not(.isediting):not(.highlight) {
       background-color: #fafafa !important;
+      .editIcon {
+        background-color: #fafafa !important;
+      }
     }
   }
   &.classic {
@@ -80,7 +87,16 @@ const StyledFixedTable = styled(FixedTable)`
         padding-right: 6px !important;
       }
     }
-    .cell.canedit:not(.isediting):is(.control-2, .control-3, , .control-5, .control-7, .control-6, .control-8) {
+    .cell.canedit:not(.isediting):is(
+        .control-2,
+        .control-3,
+        ,
+        .control-5,
+        .control-7,
+        .control-6,
+        .control-8,
+        .control-29
+      ) {
       .editIcon {
         display: none !important;
       }
@@ -113,6 +129,7 @@ function WorksheetTable(props, ref) {
     setHeightAsRowCount,
     rowCount,
     rowHeight,
+    rowHeightEnum,
     showRowHead = true,
     defaultScrollLeft,
     sheetViewHighlightRows = {},
@@ -124,12 +141,14 @@ function WorksheetTable(props, ref) {
     cellPopupContainer,
     sheetSwitchPermit,
     from,
+    isTrash,
+    allowlink,
   } = props;
   const { emptyIcon, emptyText, sheetIsFiltered, allowAdd, noRecordAllowAdd, showNewRecord } = props; // 空状态
   const { keyWords } = props; // 搜索
   const { showSummary = false, showVerticalLine = true, showAsZebra = true, wrapControlName = false } = props; // 显示
   const { rowHeadWidth = 70, renderRowHead } = props;
-  const { onColumnWidthChange, onCellClick } = props;
+  const { onColumnWidthChange = () => {}, onCellClick } = props;
   const { masterFormData = () => [], masterData = () => {}, getRowsCache } = props; // 获取子表所在记录表单数据
   const { updateCell } = props;
   const [state, setState] = useSetState({
@@ -203,7 +222,7 @@ function WorksheetTable(props, ref) {
     }
   }
   function renderCell({ columnIndex, rowIndex, style, key, type }) {
-    const control = _.cloneDeep(visibleColumns[columnIndex]);
+    const control = { ...visibleColumns[columnIndex] };
     let row = data[rowIndex] || {};
     if (cachedRows[row.rowid]) {
       row = cachedRows[row.rowid];
@@ -295,7 +314,9 @@ function WorksheetTable(props, ref) {
     } else {
       return (
         <MDCell
+          isTrash={isTrash}
           from={from}
+          allowlink={allowlink}
           isSubList={isSubList}
           fromModule={fromModule}
           appId={appId}
@@ -314,6 +335,7 @@ function WorksheetTable(props, ref) {
           error={error}
           clearCellError={clearCellError}
           rowHeight={rowHeight}
+          rowHeightEnum={rowHeightEnum}
           rowFormData={() =>
             (controls || columns)
               .map(c => ({ ...c, value: row[c.controlId] }))
@@ -500,7 +522,15 @@ function WorksheetTable(props, ref) {
   }, [showSummary, getColumnWidth, controls]);
   useEffect(() => {
     let updatedRows = [];
-    if (props.data.length !== data.length && props.data.length > data.length) {
+    if (
+      cache.prevColumns &&
+      !_.isEqual(
+        cache.prevColumns.map(c => c.fieldPermission),
+        columns.map(c => c.fieldPermission),
+      )
+    ) {
+      updatedRows = props.data;
+    } else if (props.data.length !== data.length && props.data.length > data.length) {
       updatedRows = props.data.filter(row => !_.find(data, r => r.rowid === row.rowid));
     } else {
       props.data.forEach(row => {
@@ -532,6 +562,9 @@ function WorksheetTable(props, ref) {
       });
     }
   }, [props.data]);
+  useEffect(() => {
+    setCache('prevColumns', columns);
+  }, [columns]);
   useEffect(
     handleLifeEffect.bind(null, tableId, {
       cache,
@@ -562,6 +595,7 @@ function WorksheetTable(props, ref) {
         })}
         width={width}
         height={tableHeight}
+        hasSubListFooter={isSubList && (_.last(data) || {}).isSubListFooter}
         columnHeadHeight={columnHeadHeight} // 列头高度
         setHeightAsRowCount={setHeightAsRowCount}
         sheetColumnWidths={sheetColumnWidths}

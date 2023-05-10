@@ -171,7 +171,12 @@ class TableView extends React.Component {
     if (refreshtime && _.includes(['10', '30', '60', '120', '180', '240', '300'], refreshtime)) {
       this.refreshTimer = setInterval(() => {
         const { allWorksheetIsSelected, sheetSelectedRows = [] } = _.get(this, 'props.sheetViewConfig') || {};
-        if (allWorksheetIsSelected || sheetSelectedRows.length) {
+        if (
+          allWorksheetIsSelected ||
+          sheetSelectedRows.length ||
+          document.querySelector('.workSheetNewRecord.mdModal') ||
+          document.querySelector('.workSheetRecordInfo.mdModal')
+        ) {
           return;
         }
         refresh({ noLoading: true });
@@ -301,6 +306,7 @@ class TableView extends React.Component {
         )
         .slice(0)
         .sort((a, b) => (a.row * 10 + a.col > b.row * 10 + b.col ? 1 : -1))
+        .slice(0, 30)
         .concat(
           syssort
             .filter(ssid => _.includes(sysids, ssid))
@@ -378,6 +384,7 @@ class TableView extends React.Component {
       isOpenPermit(permitList.batchGroup, sheetSwitchPermit) && // 开启了批量操作 且有可操作项
       (isOpenPermit(permitList.batchEdit, sheetSwitchPermit, viewId) ||
         isOpenPermit(permitList.QrCodeSwitch, sheetSwitchPermit, viewId) ||
+        isOpenPermit(permitList.copy, sheetSwitchPermit, viewId) ||
         isOpenPermit(permitList.export, sheetSwitchPermit, viewId) ||
         isOpenPermit(permitList.execute, sheetSwitchPermit, viewId) ||
         isOpenPermit(permitList.delete, sheetSwitchPermit, viewId))
@@ -629,10 +636,12 @@ class TableView extends React.Component {
         setHighLight={setHighLight}
         refreshWorksheetControls={refreshWorksheetControls}
         onOpenRecord={() => {
-          this.setState({
-            recordInfoVisible: true,
-            recordId: data[rowIndex].rowid,
-          });
+          if (data[rowIndex]) {
+            this.setState({
+              recordInfoVisible: true,
+              recordId: data[rowIndex].rowid,
+            });
+          }
         }}
       />
     );
@@ -733,6 +742,7 @@ class TableView extends React.Component {
         {recordInfoVisible && (
           <RecordInfo
             tableType={this.tableType}
+            widgetStyle={worksheetInfo.advancedSetting}
             controls={controls}
             sheetSwitchPermit={sheetSwitchPermit}
             projectId={projectId}
@@ -812,6 +822,7 @@ class TableView extends React.Component {
             canSelectAll={!!rows.length}
             data={rows}
             rowHeight={ROW_HEIGHT[view.rowHeight] || 34}
+            rowHeightEnum={view.rowHeight}
             keyWords={filters.keyWords}
             sheetIsFiltered={!!(filters.keyWords || filters.filterControls.length || !_.isEmpty(quickFilter))}
             showNewRecord={openNewRecord}

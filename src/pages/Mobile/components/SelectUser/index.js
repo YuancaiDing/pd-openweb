@@ -46,9 +46,29 @@ export default class SelectUser extends Component {
     };
   }
   componentDidMount() {
-    const { type } = this.props;
+    const { type, staticAccounts = [], advancedSetting = {} } = this.props;
     if (type === 'user') {
-      this.requestContactUserList();
+      if (!_.isEmpty(staticAccounts)) {
+        this.setState({ users: staticAccounts });
+      } else {
+        this.setState(
+          {
+            users:
+              advancedSetting && advancedSetting.shownullitem === '1'
+                ? [
+                    {
+                      avatar:
+                        md.global.FileStoreConfig.pictureHost.replace(/\/$/, '') +
+                        '/UserAvatar/undefined.gif?imageView2/1/w/100/h/100/q/90',
+                      fullname: advancedSetting.nullitemname || _l('为空'),
+                      accountId: 'isEmpty',
+                    },
+                  ]
+                : [],
+          },
+          this.requestContactUserList,
+        );
+      }
     } else {
       this.setState(
         {
@@ -67,6 +87,11 @@ export default class SelectUser extends Component {
   }
   requestContactUserList = () => {
     const { loading, isMore } = this.state;
+    const { staticAccounts = [] } = this.props;
+
+    if (!_.isEmpty(staticAccounts)) {
+      return;
+    }
 
     if (loading || !isMore) {
       return;
@@ -81,7 +106,14 @@ export default class SelectUser extends Component {
     }
 
     const { pageIndex, pageSize, users, searchValue } = this.state;
-    const { projectId, isRangeData, filterAccountIds = [], filterWorksheetId, filterWorksheetControlId, userType, appId } = this.props;
+    const {
+      projectId,
+      selectRangeOptions,
+      filterAccountIds = [],
+      appointedAccountIds = [],
+      userType,
+      appId,
+    } = this.props;
 
     if (userType === 2) {
       this.request = externalPortalAjax
@@ -102,14 +134,13 @@ export default class SelectUser extends Component {
           });
         });
     } else {
-      if (isRangeData) {
+      if (selectRangeOptions) {
         this.request = userAjax.getProjectContactUserListByApp({
           keywords: searchValue,
           projectId,
           pageIndex,
           pageSize,
-          filterWorksheetId,
-          filterWorksheetControlId,
+          ...(_.isObject(selectRangeOptions) ? selectRangeOptions : {}),
         });
       } else {
         this.request = userAjax.getContactUserList({
@@ -122,7 +153,8 @@ export default class SelectUser extends Component {
           dataRange: 2,
           filterProjectId: '',
           includeSystemField: false,
-          filterAccountIds: filterAccountIds,
+          filterAccountIds,
+          appointedAccountIds,
           prefixAccountIds: [],
         });
       }
@@ -274,7 +306,7 @@ export default class SelectUser extends Component {
       .getDepartmentUsers({
         departmentId: department.departmentId,
         projectId,
-        filterAccountIds
+        filterAccountIds,
       })
       .then(result => {
         this.setState({
@@ -671,13 +703,14 @@ export default class SelectUser extends Component {
     }
   };
   renderUsers() {
-    const { isRangeData, userType } = this.props;
+    const { selectRangeOptions, userType, staticAccounts = [] } = this.props;
     const { users, loading, pageIndex } = this.state;
+    const isStatic = !_.isEmpty(staticAccounts);
     return (
       <div className="flex">
         <ScrollView onScrollEnd={this.requestContactUserList}>
-          {!isRangeData && (userType === 1 || userType === 3) && this.renderDepartment()}
-          <List className="leftAlign" renderHeader={() => 'A-Z'}>
+          {!isStatic && !selectRangeOptions && (userType === 1 || userType === 3) && this.renderDepartment()}
+          <List className="leftAlign" renderHeader={isStatic ? null : () => 'A-Z'}>
             {loading && pageIndex === 1 ? (
               <div className="pTop30 pBottom30">
                 <LoadDiv size="middle" />

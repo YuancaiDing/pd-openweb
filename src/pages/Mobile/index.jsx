@@ -11,6 +11,7 @@ import { socketInit } from 'src/socket/mobileSocketInit';
 import { ROUTE_CONFIG, PORTAL } from './config';
 import './index.less';
 import _ from 'lodash';
+import { formatPortalHref } from 'src/pages/Portal/util';
 
 const isIphonex = () => {
   if (typeof window !== 'undefined' && window) {
@@ -29,6 +30,8 @@ class App extends Component {
   constructor(props) {
     super(props);
 
+    socketInit();
+
     // 处理底部导航缓存内容过多localStorage溢出问题
     Object.keys(localStorage).forEach(key => {
       if (key.indexOf('currentNavWorksheetInfo') > -1) {
@@ -40,7 +43,6 @@ class App extends Component {
     if (isIphonex() && (isMiniprogram || isWxWork)) {
       document.body.classList.add('iphoneBody');
     }
-    socketInit();
   }
   componentDidMount() {
     this.switchPath(this.props.location);
@@ -79,13 +81,24 @@ class App extends Component {
     const ROUTER = isPortal ? _.pick(ROUTE_CONFIG, PORTAL) : ROUTE_CONFIG;
     return (
       <Switch>
-        {this.genRouteComponent(ROUTER)}
+        {this.genRouteComponent(ROUTER, params => {
+          formatPortalHref(params);
+        })}
         <Route
           path="*"
           render={({ location }) => {
             const home = '/mobile/appHome';
             const page = '/mobile/recordList/';
-            if (location.pathname.includes(page)) {
+            const record = '/mobile/record/';
+            if (location.pathname.includes(record)) {
+              const param = location.pathname.replace(record, '').split('/');
+              const [appId, worksheetId, viewId, rowId] = param;
+              if (!viewId) {
+                return navigateTo(`${record}${appId}/${worksheetId}/null/${rowId}`);
+              } else {
+                return navigateTo(home);
+              }
+            } else if (location.pathname.includes(page)) {
               const param = location.pathname.replace(page, '').split('/');
               return navigateTo(param.length === 1 ? `/mobile/app/${param[0]}` : home);
             } else if (!isPortal) {

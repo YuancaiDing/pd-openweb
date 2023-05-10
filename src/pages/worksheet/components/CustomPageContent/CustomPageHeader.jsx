@@ -16,42 +16,52 @@ import { pick } from 'lodash';
 import { createFontLink, exportImage } from 'src/pages/customPage/util';
 import { saveAs } from 'file-saver';
 import SvgIcon from 'src/components/SvgIcon';
+import { navigateTo } from 'src/router/navigateTo';
+import { getAppSectionRef } from 'src/pages/PageHeader/AppPkgHeader/LeftAppGroup';
+import { deleteSheet } from 'worksheet/redux/actions/sheetList';
 import moment from 'moment';
+import { canEditData } from 'worksheet/redux/actions/util';
 
 export default function CustomPageHeader(props) {
-  const {
+  let {
     isCharge,
     currentSheet,
     updateEditPageVisible,
     updatePageInfo,
-    ids,
+    ids = {},
     updateSheetListIsUnfold,
-    deleteSheet,
     copyCustomPage,
     toggle,
-    sheetListVisible,
     pageName,
     apk,
     desc,
+    appPkg,
     ...rest
   } = props;
+  //运营者|开发者 均可分享
+  isCharge = isCharge || canEditData(_.get(appPkg, ['permissionType']));
   const isSafari = () => {
     var ua = window.navigator.userAgent;
     return ua.indexOf('Safari') != -1 && ua.indexOf('Version') != -1;
   };
-  const { appId, groupId } = ids;
-  const { projectId, appName } = apk;
-  const { workSheetId: pageId, icon, iconColor, workSheetName } = currentSheet;
+  const { groupId } = ids;
+  const { appName } = apk;
+  const projectId = appPkg.projectId || apk.projectId;
+  const appId = appPkg.id || apk.appId;
+  const { icon, workSheetName } = currentSheet;
+  const pageId = ids.worksheetId;
   const [visible, updateVisible] = useState({ popupVisible: false, editNameVisible: false, editIntroVisible: false });
   const { popupVisible, editNameVisible, editIntroVisible } = visible;
   const name = pageName !== workSheetName ? workSheetName || pageName : pageName || workSheetName;
-
   const [shareDialogVisible, setShareDialogVisible] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [descIsEditing, setDescIsEditing] = useState(false);
+  const [inFull, setInFull] = useState(false);
+
   const saveImage = () => {
     const imageName = `${appName ? `${appName}_` : ''}${name}_${moment().format('_YYYYMMDDHHmmSS')}.png`;
     setExportLoading(true);
+    window.customPageWindowResize();
     createFontLink()
       .then(exportImage)
       .then(blob => {
@@ -65,7 +75,7 @@ export default function CustomPageHeader(props) {
       if (isSuccess) {
         updatePageInfo(obj);
       } else {
-        alert(_l('修改失败'));
+        alert(_l('修改失败'), 2);
       }
     });
   };
@@ -111,13 +121,21 @@ export default function CustomPageHeader(props) {
           ),
           data: [{ text: _l('我确认删除页面和所有数据'), value: 1 }],
           onOk: () => {
-            deleteSheet({
+            const { currentPcNaviStyle } = appPkg;
+            const data = {
               type: 1,
               appId,
               projectId,
               groupId,
               worksheetId: pageId,
-            });
+              parentGroupId: currentSheet.parentGroupId,
+            };
+            if (currentPcNaviStyle === 1) {
+              const singleRef = getAppSectionRef(groupId);
+              singleRef.dispatch(deleteSheet(data));
+            } else {
+              props.deleteSheet(data);
+            }
           },
         });
         updateVisible(update(visible, { popupVisible: { $set: false } }));
@@ -138,16 +156,59 @@ export default function CustomPageHeader(props) {
     <Fragment>
       <header className={cx({ embedPageHeader: isEmbed || isEmbedPage })}>
         <div className="nameWrap flex">
-          {!isPublicShare && !isEmbedPage && (
-            <Tooltip
-              popupPlacement="bottom"
-              text={<span>{sheetListVisible ? _l('隐藏侧边栏') : _l('展开侧边栏')}</span>}
-            >
-              <div className="iconWrap hideSide" onClick={() => updateSheetListIsUnfold(!sheetListVisible)}>
-                <i className={cx(sheetListVisible ? 'icon-back-02' : 'icon-next-02')}></i>
-              </div>
-            </Tooltip>
-          )}
+          {!isPublicShare &&
+            !isEmbedPage &&
+            (appPkg.currentPcNaviStyle === 2 ? (
+              <Tooltip
+                text={
+                  <span>
+                    {_l('退出')} ({navigator.userAgent.toLocaleLowerCase().includes('mac os') ? '⌘ + E' : 'Ctrl + E'})
+                  </span>
+                }
+                popupPlacement="bottom"
+              >
+                <div
+                  className="iconWrap hideSide"
+                  onClick={() => {
+                    window.disabledSideButton = true;
+                    navigateTo(`/app/${appId}/${groupId}`);
+                  }}
+                >
+                  <Icon icon="close_fullscreen" className="hoverGray fullRotate Font20" />
+                </div>
+              </Tooltip>
+            ) : (
+              <Tooltip
+                text={
+                  <span>
+                    {inFull ? _l('退出') : _l('展开')} (
+                    {navigator.userAgent.toLocaleLowerCase().includes('mac os') ? '⌘ + E' : 'Ctrl + E'})
+                  </span>
+                }
+                popupPlacement="bottom"
+              >
+                <div
+                  className="iconWrap hideSide"
+                  onClick={() => {
+                    if (inFull) {
+                      window.disabledSideButton = true;
+                      setInFull(false);
+                      document.querySelector('#wrapper').classList.remove('fullWrapper');
+                      window.customPageWindowResize();
+                    } else {
+                      setInFull(true);
+                      document.querySelector('#wrapper').classList.add('fullWrapper');
+                      window.customPageWindowResize();
+                    }
+                  }}
+                >
+                  <Icon
+                    icon={inFull ? 'close_fullscreen' : 'open_in_full'}
+                    className={cx('hoverGray fullRotate', inFull ? 'Font20' : 'Font17')}
+                  />
+                </div>
+              </Tooltip>
+            ))}
           {isPublicShare ? (
             <div className="valignWrapper mLeft10 w100">
               <div className="svgWrap valignWrapper" style={{ backgroundColor: apk.iconColor }}>
@@ -190,7 +251,12 @@ export default function CustomPageHeader(props) {
               popupVisible={popupVisible}
               action={['click']}
               popupAlign={{ points: ['tl', 'bl'] }}
-              popup={<OperateMenu {...pick(props, ['adjustScreen', 'ids', 'currentSheet'])} onClick={handleClick} />}
+              popup={
+                <OperateMenu
+                  {...pick(props, ['adjustScreen', 'ids', 'currentSheet', 'appPkg'])}
+                  onClick={handleClick}
+                />
+              }
             >
               <i className="icon-more_horiz Font18 moreOperateIcon"></i>
             </Trigger>
@@ -246,10 +312,10 @@ export default function CustomPageHeader(props) {
           {...rest}
           {...ids}
           isActive
+          appItem={currentSheet}
           projectId={projectId}
           name={name}
           icon={icon}
-          iconColor={iconColor}
           workSheetId={pageId}
           onCancel={() => {
             handleVisibleChange(false, 'editNameVisible');

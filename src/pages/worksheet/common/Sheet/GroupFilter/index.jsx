@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { bindActionCreators } from 'redux';
 import { connect } from 'react-redux';
@@ -10,7 +10,9 @@ import { updateGroupFilter, getNavGroupCount } from 'worksheet/redux/actions';
 import { getAdvanceSetting } from 'src/util';
 import { handleCondition } from 'src/pages/widgetConfig/util/data';
 import _ from 'lodash';
-
+import { isOpenPermit } from 'src/pages/FormSet/util.js';
+import { permitList } from 'src/pages/FormSet/config.js';
+import { FILTER_CONDITION_TYPE } from 'src/pages/worksheet/common/WorkSheetFilter/enum.js';
 const Con = styled.div(
   ({ width }) => `
   width: ${width}px;
@@ -135,8 +137,6 @@ const Con = styled.div(
   }
 `,
 );
-let ajaxFn = null;
-let ajaxCount = null;
 function GroupFilter(props) {
   const {
     views = [],
@@ -150,6 +150,7 @@ function GroupFilter(props) {
     quickFilter,
     navGroupCounts,
     getNavGroupCount,
+    sheetSwitchPermit = [],
   } = props;
   const { appId, worksheetId, viewId } = base;
   const view = _.find(views, { viewId }) || (!viewId && views[0]) || {};
@@ -174,6 +175,10 @@ function GroupFilter(props) {
     isOpenGroup,
     getAdvanceSetting(view).navfilters,
     getAdvanceSetting(view).navshow,
+    getAdvanceSetting(view).showallitem,
+    getAdvanceSetting(view).allitemname,
+    getAdvanceSetting(view).shownullitem,
+    getAdvanceSetting(view).nullitemname,
   ]);
   useEffect(() => {
     isOpenGroup && getNavGroupCount();
@@ -181,6 +186,14 @@ function GroupFilter(props) {
   useEffect(() => {
     fetch();
   }, [keywords]);
+  const handleSearch = useCallback(
+    _.throttle(value => {
+      let keyWords = value.trim();
+      setKeywords(keyWords);
+      updateFilter('');
+    }, 300),
+    [],
+  );
   useEffect(() => {
     if (!navGroup.controlId || !rowIdForFilter) {
       updateGroupFilter([], view);
@@ -196,11 +209,15 @@ function GroupFilter(props) {
           filterType = navGroup.filterType === 11 ? navGroup.filterType : 24; //筛选方式 24是 | 11包含 老数据是0 按照24走
         }
       }
+      if (rowIdForFilter === 'null') {
+        //为空
+        filterType = FILTER_CONDITION_TYPE.ISNULL;
+      }
       updateGroupFilter(
         [
           {
             ...obj,
-            values: [rowIdForFilter],
+            values: rowIdForFilter === 'null' ? [] : [rowIdForFilter],
             navNames: [navName],
             dataType: soucre.type,
             filterType,
@@ -220,6 +237,9 @@ function GroupFilter(props) {
   const fetch = () => {
     const { controlId } = navGroup;
     let { navfilters = '[]', navshow } = getAdvanceSetting(view);
+    if (controlId === 'wfstatus' && !isOpenPermit(permitList.sysControlSwitch, sheetSwitchPermit)) {
+      navshow = '0';
+    }
     setOpenKeys([]);
     if (!controlId) {
       setGroupFilterData([]);
@@ -302,7 +322,6 @@ function GroupFilter(props) {
     if (!isOpenGroup) {
       return;
     }
-    ajaxFn && ajaxFn.abort();
     let soucre = controls.find(o => o.controlId === navGroup.controlId) || {};
     let param =
       soucre.type === 35
@@ -326,42 +345,42 @@ function GroupFilter(props) {
       let filterControls = navfilters.map(handleCondition);
       param = { ...param, filterControls };
     }
-    ajaxFn = sheetAjax.getFilterRows({
-      worksheetId,
-      viewId,
-      keywords,
-      pageIndex: 1,
-      pageSize: 10000,
-      isGetWorksheet: true,
-      kanbanKey: rowId,
-      ...param,
-    });
-    ajaxFn.then(result => {
-      if (result.resultCode === 4) {
-        //视图删除的情况下，显示成为选中视图的状态
-        fetchData({ worksheetId, viewId: '', rowId, cb });
-      } else {
-        let { data = [] } = result;
-        if (soucre.type !== 35 && navfilters.length > 0 && navshow === '2') {
-          data = data.filter(o => navfilters.map(value => safeParse(value).id).includes(o.rowid));
+    sheetAjax
+      .getFilterRows({
+        worksheetId,
+        viewId,
+        keywords,
+        pageIndex: 1,
+        pageSize: 10000,
+        isGetWorksheet: true,
+        kanbanKey: rowId,
+        ...param,
+      })
+      .then(result => {
+        if (result.resultCode === 4) {
+          //视图删除的情况下，显示成为选中视图的状态
+          fetchData({ worksheetId, viewId: '', rowId, cb });
+        } else {
+          let { data = [] } = result;
+          if (soucre.type !== 35 && navfilters.length > 0 && navshow === '2') {
+            data = data.filter(o => navfilters.map(value => safeParse(value).id).includes(o.rowid));
+          }
+          const controls = _.get(result, ['template', 'controls']) || [];
+          const control = controls.find(item => item.attribute === 1);
+          dataUpdate({
+            filterData: navGroupData,
+            data: data.map(item => {
+              return {
+                value: item.rowid,
+                txt: renderTxt(item, control, viewId),
+                isLeaf: !item.childrenids,
+              };
+            }),
+            rowId,
+            cb,
+          });
         }
-        const controls = _.get(result, ['template', 'controls']) || [];
-        const control = controls.find(item => item.attribute === 1);
-        ajaxFn = '';
-        dataUpdate({
-          filterData: navGroupData,
-          data: data.map(item => {
-            return {
-              value: item.rowid,
-              txt: renderTxt(item, control, viewId),
-              isLeaf: !item.childrenids,
-            };
-          }),
-          rowId,
-          cb,
-        });
-      }
-    });
+      });
   };
 
   const loadData = obj => {
@@ -447,6 +466,7 @@ function GroupFilter(props) {
   };
 
   const conRender = () => {
+    let { showallitem, allitemname = '', shownullitem, nullitemname = '' } = getAdvanceSetting(view);
     if (!isOpenGroup) {
       return (
         <span
@@ -454,9 +474,7 @@ function GroupFilter(props) {
           onClick={() => {
             props.changeGroupStatus(!isOpenGroup);
           }}
-        >
-          {/* {(controls.find(o => o.controlId === navGroup.controlId) || {}).controlName || _l('未命名')} */}
-        </span>
+        ></span>
       );
     }
     if (loading) {
@@ -465,16 +483,39 @@ function GroupFilter(props) {
     if (navGroupData && navGroupData.length <= 0 && keywords) {
       return <div className="noData mTop35 TxtCenter Gray_9e">{_l('没有搜索结果')}</div>;
     }
-    let navData = !keywords
-      ? [
+    let soucre = controls.find(o => o.controlId === navGroup.controlId) || {};
+    let navData = navGroupData;
+    if (!keywords) {
+      if ((soucre.type === 29 && !!navGroup.viewId) || [35].includes(soucre.type)) {
+        //关联记录以层级视图时|| 级联没有显示项
+        navData = [
           {
             txt: _l('全部'),
             value: '',
             isLeaf: true,
           },
-        ].concat(navGroupData)
-      : navGroupData;
-    let soucre = controls.find(o => o.controlId === navGroup.controlId) || {};
+        ].concat(navData);
+      } else {
+        navData =
+          showallitem !== '1'
+            ? [
+                {
+                  txt: allitemname || _l('全部'),
+                  value: '',
+                  isLeaf: true,
+                },
+              ].concat(navData)
+            : navData;
+        navData =
+          shownullitem === '1'
+            ? navData.concat({
+                txt: nullitemname || _l('为空'),
+                value: 'null',
+                isLeaf: true,
+              })
+            : navData;
+      }
+    }
     let isOption = [9, 10, 11].includes(soucre.type); //是否选项
     let { navfilters = '[]', navshow } = getAdvanceSetting(view);
     try {
@@ -482,9 +523,13 @@ function GroupFilter(props) {
     } catch (error) {
       navfilters = [];
     }
+    //系统字段关闭，且为状态时，默认显示成 全部
+    if (navGroup.controlId === 'wfstatus' && !isOpenPermit(permitList.sysControlSwitch, sheetSwitchPermit)) {
+      navshow = '0';
+    }
     if (isOption && navfilters.length > 0 && navshow === '2') {
-      // 显示 指定项
-      navData = navData.filter(o => navfilters.includes(o.value) || !o.value);
+      // 显示 指定项 //加上全部和空
+      navData = navData.filter(o => navfilters.includes(o.value) || ['null', ''].includes(o.value));
     }
     return (
       <ScrollView className="flex">
@@ -501,8 +546,8 @@ function GroupFilter(props) {
                       }
                     : {};
                 let count = Number((navGroupCounts.find(d => d.key === (!o.value ? 'all' : o.value)) || {}).count || 0);
-                // 显示有数据的项
-                if (navshow === '1' && count <= 0) {
+                // 显示有数据的项 //排除全部和空
+                if (navshow === '1' && count <= 0 && !['null', ''].includes(o.value)) {
                   return;
                 }
                 return (
@@ -553,11 +598,7 @@ function GroupFilter(props) {
               value={keywords}
               placeholder={_l('搜索')}
               className={cx('flex', { placeholderColor: !keywords })}
-              onChange={value => {
-                let keyWords = value.trim();
-                setKeywords(keyWords);
-                updateFilter('');
-              }}
+              onChange={handleSearch}
             />
           </React.Fragment>
         )}

@@ -32,8 +32,17 @@ function base(state = {}, action) {
 
 function isCharge(state = false, action) {
   switch (action.type) {
-    case 'SHEET_LIST_UPDATE_IS_CHARGE':
+    case 'WORKSHEET_UPDATE_IS_CHARGE':
       return action.isCharge;
+    default:
+      return state;
+  }
+}
+
+function appPkgData(state = false, action) {
+  switch (action.type) {
+    case 'WORKSHEET_UPDATE_APPPKGDATA':
+      return action.appPkgData;
     default:
       return state;
   }
@@ -57,6 +66,7 @@ function activeViewStatus(state = 1, action) {
 export default combineReducers({
   base,
   isCharge,
+  appPkgData,
   activeViewStatus,
   ...worksheet,
   boardView,

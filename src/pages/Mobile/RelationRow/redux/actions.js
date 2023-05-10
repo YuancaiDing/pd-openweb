@@ -8,9 +8,11 @@ const getPermissionInfo = (activeRelateSheetControl, rowInfo, worksheet) => {
   const { receiveControls, allowEdit } = rowInfo;
   const activeSheetIndex = 0;
   const controlPermission = controlState(activeRelateSheetControl, 3);
-  const { enumDefault2, strDefault, controlPermissions = '111' } = activeRelateSheetControl;
+  const { enumDefault2, strDefault, controlPermissions = '111', advancedSetting } = activeRelateSheetControl;
   const [, , onlyRelateByScanCode] = strDefault.split('').map(b => !!+b);
   const isSubList = activeRelateSheetControl.type === 34;
+  const allowRemoveRelation = typeof advancedSetting.allowcancel === 'undefined' ? true : advancedSetting.allowcancel === '1';
+  const allowLink = advancedSetting.allowlink !== '0';
   const isCreate = isSubList
     ? allowEdit && controlPermission.editable && enumDefault2 !== 1 && enumDefault2 !== 11 && !onlyRelateByScanCode
     : allowEdit &&
@@ -28,6 +30,8 @@ const getPermissionInfo = (activeRelateSheetControl, rowInfo, worksheet) => {
   const isScanQR = getIsScanQR();
 
   return {
+    allowRemoveRelation,
+    allowLink,
     isCreate,
     isRelevance,
     hasEdit,
@@ -99,8 +103,9 @@ export const loadRowRelationRows = (relationControl, getType) => (dispatch, getS
     params.viewId = viewId;
   }
 
-  if (window.share) {
-    params.shareId = (location.href.match(/\/public\/(record|view)\/(\w{24})/) || '')[2];
+  const shareId = (location.href.match(/\/public\/(record|view|workflow)\/(\w{24})/) || [])[2];
+  if (shareId) {
+    params.shareId = shareId;
   }
 
   sheetAjax.getRowRelationRows({
@@ -126,7 +131,7 @@ export const loadRowRelationRows = (relationControl, getType) => (dispatch, getS
         type: 'MOBILE_RELATION_ACTION_PARAMS',
         data: {
           showControls: control.showControls.filter(item => titleControl.controlId !== item).slice(0, 3),
-          coverCid: fileControls.length ? fileControls[0].controlId : null,
+          coverCid: control.coverCid || null,
         }
       });
     }

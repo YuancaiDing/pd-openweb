@@ -38,6 +38,9 @@ export const clearChartId = base => {
   };
 };
 
+export const updateIsCharge = isCharge => ({ type: 'WORKSHEET_UPDATE_IS_CHARGE', isCharge });
+export const updateAppPkgData = appPkgData => ({ type: 'WORKSHEET_UPDATE_APPPKGDATA', appPkgData });
+
 export const updateWorksheetLoading = loading => ({ type: 'WORKSHEET_UPDATE_LOADING', loading });
 
 let worksheetRequest = null;
@@ -78,7 +81,12 @@ export function loadWorksheet(worksheetId) {
         if (res.isWorksheetQuery) {
           queryRes = await worksheetAjax.getQueryBySheetId({ worksheetId }, { silent: true });
         }
-
+        if (res.resultCode !== 1) {
+          dispatch({
+            type: 'WORKSHEET_INIT_FAIL',
+          });
+          return;
+        }
         if (!res.isWorksheetQuery || queryRes) {
           dispatch({
             type: 'WORKSHEET_INIT',
@@ -190,7 +198,7 @@ export function saveView(viewId, newConfig, cb) {
     }
     // 筛选需要在保存成功后再触发界面更新
     const updateAfterSave =
-      _.some(['filters', 'moreSort', 'viewControl'].map(k => editAttrs.includes(k))) ||
+      _.some(['filters', 'moreSort', 'viewControl', 'fastFilters'].map(k => editAttrs.includes(k))) ||
       (editAttrs.includes('advancedSetting') && !!_.get(saveParams, ['advancedSetting', 'navfilters']));
     if (!updateAfterSave) {
       dispatch({
@@ -281,7 +289,7 @@ export function addNewRecord(data, view) {
 // 打开创建记录弹层
 export function openNewRecord() {
   return (dispatch, getState) => {
-    const { base, views, worksheetInfo, navGroupFilters, sheetSwitchPermit, isCharge, draftDataCount } =
+    const { base, views, worksheetInfo, navGroupFilters, sheetSwitchPermit, isCharge, draftDataCount, appPkgData } =
       getState().sheet;
     const { appId, viewId, worksheetId } = base;
     const view = _.find(views, { viewId }) || (!viewId && views[0]) || {};
@@ -305,6 +313,7 @@ export function openNewRecord() {
         addType: 1,
         showShare: isOpenPermit(permitList.recordShareSwitch, sheetSwitchPermit, viewId),
         isCharge: isCharge,
+        appPkgData: appPkgData,
         entityName: worksheetInfo.entityName,
         onAdd: data => {
           if (!_.isEmpty(data)) {
@@ -440,13 +449,10 @@ export function updateGroupFilter(navGroupFilters = [], view) {
 // 获取分组筛选的count
 export function getNavGroupCount() {
   return (dispatch, getState) => {
-    if (_.get(window, 'shareState.isPublicView')) {
-      return;
-    }
     const sheet = getState().sheet;
     const { filters = {}, base = {}, quickFilter = {} } = sheet;
     const { worksheetId, viewId } = base;
-    const { filterControls, keyWords, searchType } = filters;
+    const { filterControls, filtersGroup, keyWords, searchType } = filters;
     if (!worksheetId && !viewId) {
       return;
     }
@@ -455,6 +461,7 @@ export function getNavGroupCount() {
         worksheetId,
         viewId,
         filterControls,
+        filtersGroup,
         searchType,
         fastFilters: (_.isArray(quickFilter) ? quickFilter : []).map(f =>
           _.pick(f, [

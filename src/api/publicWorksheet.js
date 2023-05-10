@@ -168,6 +168,9 @@ export default {
   * @param {string} args.linkId 填写链接id
   * @param {string} args.reportId 统计图ID
   * @param {boolean} args.notGetTotal 不获取总记录数
+  * @param {string} args.clientId 客户端标识
+记录输入密码之后，页面刷新不用重复输入密码操作
+滑动过期
   * @param {string} args.ticket 验证码返票据
   * @param {string} args.randStr 票据随机字符串
   * @param {} args.captchaType 验证码类型（默认腾讯云）
@@ -191,6 +194,7 @@ export default {
   * @param {array} args.worksheetIds 批量工作表id
   * @param {boolean} args.handControlSource 是否处理关联的原始类型
   * @param {boolean} args.getRules 是否需要验证规则
+  * @param {boolean} args.getSwitchPermit 是否获取功能开关
   * @param {Object} options 配置参数
   * @param {Boolean} options.silent 是否禁止错误弹层
   * @returns {Promise<Boolean, ErrorModel>}
@@ -221,12 +225,13 @@ export default {
   * @param {string} args.viewId 视图Id
   * @param {string} args.appId 应用Id
   * @param {string} args.btnId 自定义按钮ID
+  * @param {string} args.btnRemark 按钮备注
   * @param {string} args.btnWorksheetId 点击按钮对应的工作表ID
   * @param {string} args.btnRowId 点击按钮对应的行记录ID
   * @param {} args.masterRecord 主记录信息
   * @param {string} args.pushUniqueId 推送ID
   * @param {string} args.verifyCode 验证码【根据配置来校验是否必填】
-  * @param {integer} args.rowStatus 1：正常 11：草稿箱
+  * @param {integer} args.rowStatus 1：正常 21：草稿箱
   * @param {string} args.draftRowId 草稿ID
   * @param {string} args.ticket 验证码返票据
   * @param {string} args.randStr 票据随机字符串
@@ -252,7 +257,7 @@ export default {
      return $.api('PublicWorksheet', 'GetPublicQueryById', args, options);
    },
   /**
-  * 公开查询搜索
+  * 公开查询
   * @param {Object} args 请求参数
   * @param {string} args.worksheetId 工作表id
   * @param {} args.getType
@@ -283,6 +288,9 @@ export default {
   * @param {string} args.linkId 填写链接id
   * @param {string} args.reportId 统计图ID
   * @param {boolean} args.notGetTotal 不获取总记录数
+  * @param {string} args.clientId 客户端标识
+记录输入密码之后，页面刷新不用重复输入密码操作
+滑动过期
   * @param {string} args.ticket 验证码返票据
   * @param {string} args.randStr 票据随机字符串
   * @param {} args.captchaType 验证码类型（默认腾讯云）

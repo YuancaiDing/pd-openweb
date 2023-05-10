@@ -65,10 +65,15 @@ export default function InfoHeader(props) {
   const logVisible = isOpenPermit(permitList.recordLogSwitch, sheetSwitchPermit, viewId);
   const workflowVisible = isOpenPermit(permitList.approveDetailsSwitch, sheetSwitchPermit, viewId);
   const portalNotHasDiscuss = md.global.Account.isPortal && !props.allowExAccountDiscuss; //外部用户且未开启讨论
-  const isPublicShare = _.get(window, 'shareState.isPublicRecord') || _.get(window, 'shareState.isPublicView');
+  const isPublicShare =
+    _.get(window, 'shareState.isPublicRecord') ||
+    _.get(window, 'shareState.isPublicView') ||
+    _.get(window, 'shareState.isPublicWorkflowRecord');
+  const isPublicRecordLand = isPublicShare && notDialog;
   const showSideBar =
     (!isPublicShare && !md.global.Account.isPortal && (workflowVisible || discussVisible || logVisible)) ||
-    (md.global.Account.isPortal && props.allowExAccountDiscuss && discussVisible);
+    (md.global.Account.isPortal && props.allowExAccountDiscuss && discussVisible) ||
+    from === RECORD_INFO_FROM.WORKFLOW;
   function loadDiscussionsCount() {
     if (sideVisible || !discussVisible || portalNotHasDiscuss) {
       return;

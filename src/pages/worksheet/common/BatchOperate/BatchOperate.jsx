@@ -4,9 +4,9 @@ import PropTypes from 'prop-types';
 import styled from 'styled-components';
 import { autobind } from 'core-decorators';
 import cx from 'classnames';
+import mdNotification from 'ming-ui/functions/notify';
 import DeleteConfirm from 'ming-ui/components/DeleteReconfirm';
 import { Tooltip, Dialog } from 'ming-ui';
-import { notification, NotificationContent } from 'ming-ui/components/Notification';
 import processAjax from 'src/pages/workflow/api/process';
 import worksheetAjax from 'src/api/worksheet';
 import { copyRow } from 'worksheet/controllers/record';
@@ -24,6 +24,7 @@ import './BatchOperate.less';
 import { isOpenPermit } from 'src/pages/FormSet/util.js';
 import { permitList } from 'src/pages/FormSet/config.js';
 import _ from 'lodash';
+import { canEditData, canEditApp } from 'worksheet/redux/actions/util';
 
 const CancelTextContent = styled.div`
   display: flex;
@@ -143,35 +144,6 @@ class BatchOperate extends React.Component {
   triggerCustomBtn(btn, isAll) {
     const { worksheetId, viewId, selectedRows, filters, quickFilter, navGroupFilters, clearSelect } = this.props;
     const { filterControls, keyWords, searchType } = filters;
-    const Notice = styled.div`
-      font-size: 14px;
-      color: #333;
-      font-weight: bold;
-      .icon {
-        margin-right: 5px;
-        font-size: 20px;
-        color: #f44336;
-      }
-      .btnName {
-        display: inline-block;
-        max-width: 170px;
-      }
-    `;
-    const Content = styled.div`
-      margin-left: 25px;
-      font-size: 13px;
-      color: #757575;
-      font-weight: normal;
-    `;
-    const NoticeHeader = (
-      <Notice>
-        <i className={'icon icon-Import-failure'} />
-        {_l('批量操作')}
-        {_l('“')}
-        <span className="btnName ellipsis">{btn.name}</span>
-        {_l('”')}
-      </Notice>
-    );
     let args = { isAll };
     if (isAll) {
       args = {
@@ -215,20 +187,10 @@ class BatchOperate extends React.Component {
       })
       .then(data => {
         if (!data) {
-          notification.open({
-            content: (
-              <NotificationContent
-                className="workflowNoticeContentWrap"
-                themeColor="error"
-                header={NoticeHeader}
-                content={<Content>{_l('失败，所有记录都不满足执行条件，或流程尚未启用')}</Content>}
-                showClose={true}
-                onClose={() => notification.close(`batchUpdateWorkflowNotice${btn.btnId}`)}
-              />
-            ),
-            key: `batchUpdateWorkflowNotice${btn.btnId}`,
+          mdNotification.error({
+            title: _l('批量操作"%0"', btn.name),
+            description: _l('失败，所有记录都不满足执行条件，或流程尚未启用'),
             duration: 3,
-            // maxCount: 5,
           });
         }
       });
@@ -255,7 +217,7 @@ class BatchOperate extends React.Component {
   }
 
   @autobind
-  handleUpdateWorksheetRow(args) {
+  handleUpdateWorksheetRow(args, callback = () => {}) {
     const {
       appId,
       worksheetId,
@@ -307,13 +269,14 @@ class BatchOperate extends React.Component {
       updateArgs.navGroupFilters = navGroupFilters;
     }
     worksheetAjax.updateWorksheetRows(updateArgs).then(data => {
+      callback();
       if (data.successCount === selectedRows.length) {
         alert(_l('修改成功'));
       }
       if (_.find(controls, item => _.includes([10, 11], item.type) && /color/.test(item.value))) {
         refreshWorksheetControls();
       }
-      if (allWorksheetIsSelected || args.hasFilters) {
+      if (allWorksheetIsSelected || args.hasFilters || _.find(controls, c => c.type === 29)) {
         reload();
       } else {
         updateRows(
@@ -327,6 +290,7 @@ class BatchOperate extends React.Component {
 
   @autobind
   handlePrintQrCode({ printType = 1 } = {}) {
+    const { isCharge } = this.props;
     if (window.isPublicApp) {
       alert(_l('预览模式下，不能操作'), 3);
       return;
@@ -347,6 +311,7 @@ class BatchOperate extends React.Component {
       return;
     }
     printQrBarCode({
+      isCharge,
       printType,
       appId,
       viewId,
@@ -355,6 +320,7 @@ class BatchOperate extends React.Component {
       worksheetName: name,
       controls,
       selectedRows,
+      ...this.getFilterArgs(),
     });
   }
 
@@ -362,6 +328,15 @@ class BatchOperate extends React.Component {
     const { rows } = this.props;
     const indexList = ids.map(id => _.findIndex(rows, row => row.rowid === id));
     return rows[_.max(indexList)].rowid;
+  }
+
+  getFilterArgs() {
+    const { filters = {}, quickFilter, navGroupFilters } = this.props;
+    return {
+      filterControls: filters.filterControls,
+      fastFilters: quickFilter,
+      navGroupFilters,
+    };
   }
 
   render() {
@@ -377,6 +352,7 @@ class BatchOperate extends React.Component {
       controls,
       filters,
       quickFilter,
+      filtersGroup,
       navGroupFilters,
       worksheetInfo,
       count,
@@ -390,6 +366,8 @@ class BatchOperate extends React.Component {
       refresh,
       addRecord,
       setHighLightOfRows,
+      permissionType,
+      isLock,
     } = this.props;
     // funcs
     const { reload, updateRows, hideRows, getWorksheetSheetViewSummary } = this.props;
@@ -410,10 +388,7 @@ class BatchOperate extends React.Component {
       !_.isEmpty(permission) && permission.canEdit && isOpenPermit(permitList.batchEdit, sheetSwitchPermit, viewId);
     const canCopy =
       !_.isEmpty(permission) && permission.canEdit && isOpenPermit(permitList.copy, sheetSwitchPermit, viewId);
-    const showCodePrint =
-      !allWorksheetIsSelected &&
-      selectedLength <= 100 &&
-      isOpenPermit(permitList.QrCodeSwitch, sheetSwitchPermit, viewId);
+    const showCodePrint = isOpenPermit(permitList.QrCodeSwitch, sheetSwitchPermit, viewId);
     const selectedTip = (
       <div className="selected">
         <span className="selectedStatus">
@@ -516,9 +491,10 @@ class BatchOperate extends React.Component {
                   }}
                 />
               )}
-              {!allWorksheetIsSelected && (showCodePrint || !_.isEmpty(templateList)) && (
+              {(showCodePrint || !_.isEmpty(templateList)) && (
                 <PrintList
                   {...{
+                    isCharge,
                     showCodePrint,
                     appId,
                     worksheetId,
@@ -527,8 +503,11 @@ class BatchOperate extends React.Component {
                     controls,
                     selectedRows,
                     selectedRowIds: selectedRows.map(r => r.rowid),
-                    templateList,
+                    templateList: allWorksheetIsSelected ? templateList.filter(d => d.type > 2) : templateList,
+                    count: count,
+                    allowLoadMore: allWorksheetIsSelected,
                   }}
+                  {...this.getFilterArgs()}
                 />
               )}
               {showExport && (
@@ -540,6 +519,7 @@ class BatchOperate extends React.Component {
                       alert(_l('预览模式下，不能操作'), 3);
                       return;
                     }
+                    const hasCharge = isCharge || canEditData(permissionType);
                     exportSheet({
                       allCount: count,
                       allWorksheetIsSelected: allWorksheetIsSelected,
@@ -550,7 +530,7 @@ class BatchOperate extends React.Component {
                       searchArgs: filters,
                       sheetSwitchPermit,
                       selectRowIds: selectedRows.map(item => item.rowid),
-                      columns: filterHidedControls(controls, view.controls).filter(item => {
+                      columns: (hasCharge ? controls : filterHidedControls(controls, view.controls)).filter(item => {
                         return (
                           item.controlPermissions && item.controlPermissions[0] === '1' && item.controlId !== 'rowid'
                         );
@@ -558,8 +538,9 @@ class BatchOperate extends React.Component {
                       downLoadUrl: downLoadUrl,
                       worksheetSummaryTypes: rowsSummary.types,
                       quickFilter,
+                      filtersGroup,
                       navGroupFilters,
-
+                      isCharge: hasCharge,
                       // 不支持列统计结果
                       hideStatistics: true,
                     });
@@ -630,7 +611,7 @@ class BatchOperate extends React.Component {
                             }
                           })
                           .fail(err => {
-                            alert(_l('批量删除失败', 3));
+                            alert(_l('批量删除失败'), 3);
                           });
                       }
                     }
@@ -639,7 +620,7 @@ class BatchOperate extends React.Component {
                       buttonType: 'danger',
                       description:
                         selectedLength <= md.global.SysSettings.worktableBatchOperateDataLimitCount
-                          ? _l('60天内可在 回收站 内找回已删除%0，无编辑权限的数据无法删除。', entityName)
+                          ? _l('%0天内可在 回收站 内找回已删除%1，无编辑权限的数据无法删除。', md.global.SysSettings.worksheetRowRecycleDays, entityName)
                           : _l(
                               '批量操作单次最大支持%0行记录，点击删除后将只删除前%0行记录',
                               md.global.SysSettings.worktableBatchOperateDataLimitCount,
@@ -715,7 +696,8 @@ class BatchOperate extends React.Component {
                   }}
                 />
               </Tooltip>
-              {isCharge && (
+              {(canEditApp(permissionType) || //管理员|开发者
+                canEditData(permissionType)) && ( //运营者
                 <SubButton
                   className="mTop4"
                   list={[

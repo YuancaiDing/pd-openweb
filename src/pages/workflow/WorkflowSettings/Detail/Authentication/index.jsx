@@ -82,7 +82,10 @@ export default class Authentication extends Component {
             {
               method: 1,
               url: '',
-              params: [{ name: 'app_id', value: '' }, { name: 'app_secret', value: '' }],
+              params: [
+                { name: 'app_id', value: '' },
+                { name: 'app_secret', value: '' },
+              ],
               headers: [],
               contentType: 1,
               formControls: [],
@@ -267,23 +270,28 @@ export default class Authentication extends Component {
 
           return (
             <Fragment>
-              <div className="flexRow mTop10">
+              <div className="flexRow">
                 <Dropdown
-                  className="flowDropdown mRight10"
+                  className="flowDropdown mRight10 mTop10"
                   style={{ width: 115 }}
                   data={METHODS_TYPE}
                   value={item.method}
                   border
                   onChange={method => this.updateAjaxParameter({ method: method }, i)}
                 />
-                <input
-                  type="text"
-                  className="ThemeBorderColor3 actionControlBox pTop0 pBottom0 pLeft10 pRight10 flex"
-                  placeholder="https://example.com/login/oauth/access_token"
-                  value={item.url}
-                  onChange={evt => this.updateAjaxParameter({ url: evt.target.value }, i)}
-                  onBlur={evt => this.updateAjaxParameter({ url: evt.target.value.trim() }, i)}
-                />
+                <div className="flex">
+                  <CustomTextarea
+                    processId={this.props.processId}
+                    selectNodeId={this.props.selectNodeId}
+                    isIntegration={this.props.isIntegration}
+                    type={2}
+                    height={0}
+                    content={item.url}
+                    formulaMap={data.formulaMap}
+                    onChange={(err, value, obj) => this.updateAjaxParameter({ url: value }, i)}
+                    updateSource={this.updateSource}
+                  />
+                </div>
               </div>
 
               <div className="flexRow mTop10">
@@ -470,9 +478,9 @@ export default class Authentication extends Component {
    */
   test = () => {
     const { data } = this.state;
-    const { params, headers, formControls, body } = data.webHookNodes[this.testIndex];
+    const { url, params, headers, formControls, body } = data.webHookNodes[this.testIndex];
     const testArray = _.uniq(
-      (JSON.stringify(params) + JSON.stringify(headers) + JSON.stringify(formControls) + body).match(
+      (url + JSON.stringify(params) + JSON.stringify(headers) + JSON.stringify(formControls) + body).match(
         /\$[^ \r\n]+?\$/g,
       ) || [],
     );
@@ -512,7 +520,7 @@ export default class Authentication extends Component {
           processId,
           nodeId: selectNodeId,
           method,
-          url,
+          url: this.formatParameters(url, testMap),
           params: JSON.parse(this.formatParameters(JSON.stringify(params.filter(item => item.name)), testMap)),
           headers: JSON.parse(this.formatParameters(JSON.stringify(headers.filter(item => item.name)), testMap)),
           body: this.formatParameters(body, testMap),
@@ -528,7 +536,7 @@ export default class Authentication extends Component {
           });
         } else {
           this.updateAjaxParameter({ testMap }, this.testIndex);
-          alert(result.msg, 2);
+          alert(result.msg || _l('请求异常'), 2);
         }
 
         this.setState({ sendRequest: false });

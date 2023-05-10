@@ -11,6 +11,8 @@ import sheetAjax from 'src/api/worksheet';
 import { filterOnlyShowField } from 'src/pages/widgetConfig/util';
 import { updateViewAdvancedSetting } from 'src/pages/worksheet/common/ViewConfig/util';
 import NavShow from './NavShow';
+import { setSysWorkflowTimeControlFormat } from 'src/pages/worksheet/views/CalendarView/util.js';
+
 import _ from 'lodash';
 const Wrap = styled.div`
   .hasData {
@@ -295,8 +297,11 @@ export default function NavGroup(params) {
       <AddCondition
         renderInParent
         className="addControl"
-        columns={filterOnlyShowField(worksheetControls).filter(
-          o => canNavGroup(o, worksheetId), // && !navGroup.controlId === o.controlId,
+        columns={setSysWorkflowTimeControlFormat(
+          filterOnlyShowField(worksheetControls).filter(
+            o => canNavGroup(o, worksheetId), // && !navGroup.controlId === o.controlId,
+          ),
+          currentSheetInfo.switches || [],
         )}
         onAdd={addNavGroups}
         style={{
@@ -340,6 +345,8 @@ export default function NavGroup(params) {
       if (o.key === 'navshow') {
         return (
           <NavShow
+            canShowAll
+            canShowNull
             params={o}
             value={navshow}
             onChange={newValue => {
@@ -352,6 +359,7 @@ export default function NavGroup(params) {
                 }),
               );
             }}
+            advancedSetting={view.advancedSetting}
             navfilters={navfilters}
             filterInfo={{
               relateControls: relateControls,
@@ -363,6 +371,7 @@ export default function NavGroup(params) {
                 'projectId',
                 'roleType',
                 'worksheetId',
+                'switches',
               ]),
               columns,
               viewControl: data.controlId,
@@ -386,6 +395,7 @@ export default function NavGroup(params) {
                   : null,
               );
             }}
+            border
             cancelAble={[29, 35].includes(data.type)}
             renderError={() => {
               if (data.type === 29 && relateSheetInfo.length > 0 && o.key === 'viewId') {

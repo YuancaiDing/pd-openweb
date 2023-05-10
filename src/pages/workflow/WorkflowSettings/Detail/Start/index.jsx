@@ -110,6 +110,8 @@ export default class Start extends Component {
       returnJson,
       returns = [],
       processConfig,
+      hooksAll,
+      hooksBody,
     } = data;
     let { time } = data;
     time = isDateField ? '' : time;
@@ -124,7 +126,7 @@ export default class Start extends Component {
         return;
       }
 
-      if (appType === APP_TYPE.WEBHOOK && !data.controls.length) {
+      if (appType === APP_TYPE.WEBHOOK && !data.controls.length && close) {
         alert(_l('请设置有效的参数'), 2);
         return;
       }
@@ -138,26 +140,49 @@ export default class Start extends Component {
         return;
       }
 
-      if (returnJson && !checkJSON(returnJson)) {
+      if (!hooksAll && returnJson && !checkJSON(returnJson)) {
         alert(_l('自定义数据返回JSON格式错误，请修改'), 2);
         return;
       }
 
       if (_.includes([APP_TYPE.PBC, APP_TYPE.PARAMETER], appType)) {
+        let arrError = 0;
+        let objArrError = 0;
+
         if (controls.filter(item => !item.controlName).length) {
           alert(_l('名称不能为空'), 2);
           return;
         }
 
-        const arr = controls.filter(item => item.type === 10000003);
-        let arrError = 0;
-
-        arr.forEach(item => {
-          if (_.isEmpty(safeParse(item.value)) || !_.isArray(safeParse(item.value))) arrError++;
-        });
+        controls
+          .filter(item => item.type === 10000003)
+          .forEach(item => {
+            if (_.isEmpty(safeParse(item.value)) || !_.isArray(safeParse(item.value))) arrError++;
+          });
 
         if (arrError) {
           alert(_l('数组范例数据有错误'), 2);
+          return;
+        }
+
+        controls
+          .filter(item => item.type === 10000008)
+          .forEach(item => {
+            if (!controls.find(o => o.dataSource === item.controlId)) objArrError++;
+          });
+
+        if (objArrError) {
+          alert(_l('对象数组下至少要有一个参数'), 2);
+          return;
+        }
+
+        if (
+          controls.filter(
+            item =>
+              item.dataSource && !item.alias && controls.find(o => o.controlId === item.dataSource).type === 10000008,
+          ).length
+        ) {
+          alert(_l('对象数组下，子节点的别名为必填'), 2);
           return;
         }
       }
@@ -200,6 +225,7 @@ export default class Start extends Component {
           returnJson,
           returns: returns.filter(o => !!o.name),
           processConfig,
+          hooksBody,
         },
         { isIntegration: this.props.isIntegration },
       )

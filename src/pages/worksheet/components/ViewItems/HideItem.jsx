@@ -47,7 +47,7 @@ export default function HideItem(props) {
       <Menu className="viewItemMoreOperate">
         {isCharge && (
           <MenuItem icon={<Icon icon="workflow_write" className="Font18" />} onClick={clickEditName}>
-            <span className="text">{_l('重命名')}</span>
+            <span className="text">{_l('重命名%05004')}</span>
           </MenuItem>
         )}
         {isCharge && (
@@ -59,7 +59,7 @@ export default function HideItem(props) {
               setVisible(false);
             }}
           >
-            <span className="text">{_l('复制')}</span>
+            <span className="text">{_l('复制%05003')}</span>
           </MenuItem>
         )}
         {isCharge && <hr className="splitLine" />}
@@ -76,7 +76,7 @@ export default function HideItem(props) {
             onMouseLeave={() => setChangeHiddenTypeVisible(false)}
           >
             <span className="text">
-              {item.advancedSetting.showhide !== 'hide' ? _l('从导航栏中隐藏') : _l('取消隐藏')}
+              {item.advancedSetting.showhide !== 'hide' ? _l('从导航栏中隐藏%05001') : _l('取消隐藏%05002')}
             </span>
             <Icon icon="arrow-right-tip Font14" style={{ fontSize: '16px', right: '10px', left: 'initial' }} />
             {changeHiddenTypeVisible && (
@@ -107,7 +107,7 @@ export default function HideItem(props) {
               setVisible(false);
             }}
           >
-            <span className="text">{_l('删除视图')}</span>
+            <span className="text">{_l('删除视图%05000')}</span>
           </MenuItem>
         )}
       </Menu>
@@ -144,7 +144,7 @@ export default function HideItem(props) {
       className={`${item.viewId === currentViewId ? 'active' : ''} drawerWorksheetShowListItem`}
       onClick={clickHandle}
     >
-      <Icon icon="drag_indicator" className="Font16"/>
+      <Icon icon="drag_indicator" className="Font16" style={isCharge ? {} : {opacity: 0}}/>
       <Icon
         style={{ color: viewInfo.color, fontSize: '20px' }}
         icon={viewInfo.icon}
@@ -166,7 +166,7 @@ export default function HideItem(props) {
       ) : (
         <span className="viewName ellipsis">{item.name}</span>
       )}
-      {type === 'drawerWorksheetShowList' &&
+      {isCharge && type === 'drawerWorksheetShowList' &&
         item.advancedSetting.showhide &&
         item.advancedSetting.showhide.search(/hpc|happ/g) > -1 && (
           <Icon

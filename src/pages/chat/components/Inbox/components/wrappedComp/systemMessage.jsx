@@ -9,6 +9,7 @@ import settingGroups from 'src/components/group/settingGroup/settingGroups';
 import AddressBookDialog from 'src/pages/chat/lib/addressBook';
 import ExecDialog from 'src/pages/workflow/components/ExecDialog';
 import linkify from 'linkifyjs/html';
+import { navigateTo } from 'src/router/navigateTo';
 import xss from 'xss';
 import ErrorDialog from 'src/pages/worksheet/common/WorksheetBody/ImportDataFromExcel/ErrorDialog';
 import TaskCenterController from 'src/api/taskCenter';
@@ -111,6 +112,13 @@ export default class SystemMessage extends PureComponent {
           window.open(href);
           return;
         }
+
+        const matchedAppPath = (location.pathname.match(/\/app\/([\w-]{36})/) || '')[0];
+        // 应用首页
+        if (matchedAppPath && matchedAppPath === (href.match(/\/app\/([\w-]{36})/) || '')[0]) {
+          evt.preventDefault();
+          navigateTo(href + '?from=system');
+        }
       });
     }
   }
@@ -127,9 +135,9 @@ export default class SystemMessage extends PureComponent {
     };
 
     delete xss.whiteList.video;
-    let content = (Message.content || '');
+    let content = Message.content || '';
     if (md.global.Account.isPortal) {
-      content = content.replace(/<a data-accountid=[^>]*/gi, '<a');//外部门户不能点击用户
+      content = content.replace(/<a data-accountid=[^>]*/gi, '<a'); //外部门户不能点击用户
     }
     return (
       <div className="messageItem">
@@ -146,7 +154,23 @@ export default class SystemMessage extends PureComponent {
               <span
                 dangerouslySetInnerHTML={{
                   __html: parse(
-                    xss(linkify((Message.content || '').replace(/[\r\n]/g, '<br />').replace(/，<a href=.*personal\?type=enterprise.*<\/a>/gi, '')), {
+                    xss(
+                      linkify(
+                        content
+                          .replace(/<a/g, '_$a_$')
+                          .replace(/<span/g, '_$span_$')
+                          .replace(/<br/g, '_$br_$')
+                          .replace(/<\//g, '_$/_$')
+                          .replace(/</g, '')
+                          .replace(/_\$a_\$/g, '<a')
+                          .replace(/_\$span_\$/g, '<span')
+                          .replace(/_\$br_\$/g, '<br')
+                          .replace(/_\$\/_\$/g, '</')
+                          .replace(/[\r\n]/g, '<br />')
+                          .replace(/&/g, '&amp;')
+                          .replace(/，<a href=.*personal\?type=enterprise.*<\/a>/gi, ''),
+                      ),
+                      {
                         stripIgnoreTag: true,
                         whiteList: Object.assign({}, xss.whiteList, {
                           a: ['target', 'href', 'title', 'optype', 'opvalue', 'taskid', 'opuser', 't'],

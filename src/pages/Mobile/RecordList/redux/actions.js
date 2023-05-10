@@ -1,6 +1,6 @@
 import sheetAjax from 'src/api/worksheet';
 import homeAppAjax from 'src/api/homeApp';
-import { isHaveCharge } from 'src/pages/worksheet/redux/actions/util';
+import { canEditApp } from 'src/pages/worksheet/redux/actions/util';
 import { getRequest } from 'src/util';
 import _ from 'lodash';
 
@@ -25,24 +25,8 @@ export const loadWorksheet = () => (dispatch, getState) => {
     localStorage.getItem(`currentNavWorksheetInfo-${currentNavWorksheetId}`) &&
     JSON.parse(localStorage.getItem(`currentNavWorksheetInfo-${currentNavWorksheetId}`));
   if (appNaviStyle === 2 && currentNavWorksheetInfo) {
-    dispatch({
-      type: 'WORKSHEET_INIT',
-      value: {
-        ...currentNavWorksheetInfo,
-        views: currentNavWorksheetInfo.views.filter(
-          v => _.get(v, 'advancedSetting.showhide') !== 'hide' && _.get(v, 'advancedSetting.showhide') !== 'spc&happ',
-        ),
-      },
-    });
-    dispatch({
-      type: 'MOBILE_WORK_SHEET_INFO',
-      data: {
-        ...currentNavWorksheetInfo,
-        views: currentNavWorksheetInfo.views.filter(
-          v => _.get(v, 'advancedSetting.showhide') !== 'hide' && _.get(v, 'advancedSetting.showhide') !== 'spc&happ',
-        ),
-      },
-    });
+    dispatch({ type: 'WORKSHEET_INIT', value: currentNavWorksheetInfo });
+    dispatch({ type: 'MOBILE_WORK_SHEET_INFO', data: currentNavWorksheetInfo });
     dispatch({ type: 'MOBILE_WORK_SHEET_UPDATE_LOADING', loading: false });
   } else {
     dispatch({ type: 'MOBILE_WORK_SHEET_UPDATE_LOADING', loading: true });
@@ -73,24 +57,8 @@ export const loadWorksheet = () => (dispatch, getState) => {
           }
         });
       }
-      dispatch({
-        type: 'WORKSHEET_INIT',
-        value: {
-          ...workSheetInfo,
-          views: workSheetInfo.views.filter(
-            v => _.get(v, 'advancedSetting.showhide') !== 'hide' && _.get(v, 'advancedSetting.showhide') !== 'spc&happ',
-          ),
-        },
-      });
-      dispatch({
-        type: 'MOBILE_WORK_SHEET_INFO',
-        data: {
-          ...workSheetInfo,
-          views: workSheetInfo.views.filter(
-            v => _.get(v, 'advancedSetting.showhide') !== 'hide' && _.get(v, 'advancedSetting.showhide') !== 'spc&happ',
-          ),
-        },
-      });
+      dispatch({ type: 'WORKSHEET_INIT', value: workSheetInfo });
+      dispatch({ type: 'MOBILE_WORK_SHEET_INFO', data: workSheetInfo });
       dispatch({
         type: 'MOBILE_SHEET_PERMISSION_INIT',
         value: workSheetInfo.switches,
@@ -113,7 +81,7 @@ export const loadWorksheet = () => (dispatch, getState) => {
           },
         },
       });
-      const isCharge = isHaveCharge(data.permissionType, data.isLock);
+      const isCharge = canEditApp(data.permissionType, data.isLock);
       dispatch({
         type: 'MOBILE_UPDATE_IS_CHARGE',
         value: isCharge,

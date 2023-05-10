@@ -248,7 +248,7 @@ class SheetView extends Component {
         {_l('确认删除记录?')}
       </div>,
       <div className="Font13" style={{ color: '#333' }}>
-        {_l('60天内可在 回收站 内找回已删除%0，无编辑权限的数据无法删除。', worksheetInfo.entityName)}
+        {_l('%0天内可在 回收站 内找回已删除%1，无编辑权限的数据无法删除。', md.global.SysSettings.worksheetRowRecycleDays, worksheetInfo.entityName)}
       </div>,
       [
         {
@@ -308,39 +308,31 @@ class SheetView extends Component {
       ];
     }
     this.props.changeBatchOptData([]);
-    processAjax.startProcess({
-      appId: worksheetId,
-      sources: batchOptCheckedData,
-      triggerId: btn.btnId,
-      ...args,
-    }).then(data => {
-      if (!data) {
-        this.setState({ runInfoVisible: false });
-      } else {
-        this.showRunInfo(true);
-        this.props.fetchSheetRows();
-      }
-    });
+    processAjax
+      .startProcess({
+        appId: worksheetId,
+        sources: batchOptCheckedData,
+        triggerId: btn.btnId,
+        ...args,
+      })
+      .then(data => {
+        if (data) {
+          this.props.fetchSheetRows();
+        }
+      });
   };
   handleBatchOperateCustomBtn = btn => {
     const { allWorksheetIsSelected, batchOptCheckedData } = this.props;
     if (allWorksheetIsSelected && batchOptCheckedData && batchOptCheckedData.length > 1000) {
       alert(_l('前选中数量超过1000条，无法执行此操作'), 3);
+      return;
     }
-    if (btn.clickType === CUSTOM_BUTTOM_CLICK_TYPE.IMMEDIATELY) {
-      // 立即执行
-      this.triggerCustomBtn(btn, allWorksheetIsSelected);
-    } else if (btn.clickType === CUSTOM_BUTTOM_CLICK_TYPE.CONFIRM) {
-      // 二次确认
-      Modal.alert(_l('你确认对记录执行此操作吗？'), '', [
-        { text: _l('取消'), onPress: () => {}, style: 'default' },
-        { text: _l('确定'), onPress: () => this.triggerCustomBtn(btn, allWorksheetIsSelected) },
-      ]);
-    }
+    // 立即执行
+    this.triggerCustomBtn(btn, allWorksheetIsSelected);
     this.setState({ showButtons: false });
     this.props.changeBatchOptVisible(false);
   };
-  handleUpdateWorksheetRow = args => {
+  handleUpdateWorksheetRow = (args, callback = () => {}) => {
     const {
       appId,
       worksheetId,
@@ -387,6 +379,7 @@ class SheetView extends Component {
     }
     worksheetAjax.updateWorksheetRows(updateArgs).then(data => {
       changeBatchOptData([]);
+      callback();
       this.props.changeBatchOptVisible(false);
       if (data.successCount === batchOptCheckedData.length && args.workflowType === 2) {
         alert(_l('修改成功'));
@@ -396,9 +389,6 @@ class SheetView extends Component {
       }
       this.props.fetchSheetRows();
     });
-  };
-  showRunInfo = flag => {
-    this.setState({ runInfoVisible: flag });
   };
 
   render() {
@@ -502,15 +492,13 @@ class SheetView extends Component {
           hideRecordActionVisible={() => {
             this.setState({ showButtons: false });
           }}
-          isMobileOperate={true}
+          isBatchOperate={true}
           batchOptCheckedData={batchOptCheckedData}
           fetchSheetRows={this.props.fetchSheetRows}
           view={view}
           worksheetControls={this.props.worksheetControls}
           changeBatchOptData={this.props.changeBatchOptData}
           handleBatchOperateCustomBtn={this.handleBatchOperateCustomBtn}
-          runInfoVisible={this.state.runInfoVisible}
-          showRunInfo={this.showRunInfo}
           handleUpdateWorksheetRow={this.handleUpdateWorksheetRow}
           currentSheetRows={this.props.currentSheetRows}
         />

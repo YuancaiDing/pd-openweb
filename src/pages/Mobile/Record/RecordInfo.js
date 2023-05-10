@@ -27,6 +27,7 @@ import ChatCount from '../components/ChatCount';
 import './index.less';
 import externalPortalAjax from 'src/api/externalPortal';
 import { FORM_HIDDEN_CONTROL_IDS } from 'src/pages/widgetConfig/config/widget';
+import FormCover from 'src/pages/worksheet/common/recordInfo/RecordForm/FormCover.jsx';
 import _ from 'lodash';
 
 const formatParams = params => {
@@ -37,23 +38,6 @@ const formatParams = params => {
     viewId: ['null', 'undefined'].includes(viewId) ? '' : viewId,
   };
 };
-
-const draftSubmitFilterData = [
-  'rowid',
-  'ownerid',
-  'caid',
-  'ctime',
-  'utime',
-  'uaid',
-  'wfname',
-  'wfcuaids',
-  'wfcaid',
-  'wfctime',
-  'wfrtime',
-  'wfftime',
-  'wfstatus',
-];
-
 class Record extends Component {
   constructor(props) {
     super(props);
@@ -75,14 +59,17 @@ class Record extends Component {
       approveCount: 0,
       btnDisable: {},
       advancedSetting: {},
+      formStyleImggeData: [], // 表单样式封面字段值
+      rulesLocked: false
     };
     this.refreshEvents = {};
     this.cellObjs = {};
     this.submitType = '';
+    this.isSharePage = window.share || window.shareAuthor;
   }
   componentDidMount() {
     this.loadRow();
-    if (this.props.getDataType !== 21 && !window.share) {
+    if (this.props.getDataType !== 21 && !this.isSharePage) {
       this.loadCustomBtns();
       this.getPortalDiscussSet();
       this.getApproveTodoList();
@@ -99,7 +86,7 @@ class Record extends Component {
     const baseIds = this.getBaseIds();
     const getRowByIdRequest = worksheetAjax.getRowDetail({
       ...baseIds,
-      getType: getDataType ? getDataType : (location.search.includes('share') || window.share) ? 3 : 1,
+      getType: getDataType ? getDataType : location.search.includes('share') || this.isSharePage ? 3 : 1,
       checkView: true,
       appId: null,
     });
@@ -122,13 +109,21 @@ class Record extends Component {
         dataSource: c.dataSource || '',
         value: rowData[c.controlId],
         hidden: _.includes(FORM_HIDDEN_CONTROL_IDS, c.controlId) || viewControls.includes(c.controlId),
+        count: rowData['rq' + c.controlId],
       }));
       this.formData = receiveControls;
       rowResult.receiveControls = receiveControls;
-      if (window.share) {
+      if (this.isSharePage) {
         rowResult.allowEdit = false;
         rowResult.allowDelete = false;
       }
+
+      const coverid = worksheetInfoResult.advancedSetting.coverid;
+      const formStyleControl = _.find(receiveControls, i => i.controlId === coverid) || {};
+      let formStyleImggeData = coverid
+        ? JSON.parse(formStyleControl.value || '[]').filter(i => _.includes(['.png', '.jpg', '.jpeg'], i.ext))
+        : [];
+
       this.setState({
         random: Date.now(),
         sheetRow: rowResult,
@@ -139,7 +134,13 @@ class Record extends Component {
         isWorksheetQuery: worksheetInfoResult.isWorksheetQuery,
         advancedSetting: worksheetInfoResult.advancedSetting,
         switchPermit: worksheetInfoResult.switches,
+        formStyleImggeData,
+        rulesLocked: checkRuleLocked(worksheetInfoResult.rules, rowResult.receiveControls)
       });
+
+      if (props && props.executionFinished && !rowResult.isViewData) {
+        this.props.onClose();
+      }
     });
   };
   loadCustomBtns = () => {
@@ -171,23 +172,26 @@ class Record extends Component {
 
     const formData = data
       .filter(it => it.controlId !== 'ownerid')
-      .filter(item => item.type !== 30 && item.type !== 31 && item.type !== 32)
+      .filter(item => item.type !== 30 && item.type !== 31 && item.type !== 32 && item.type !== 33)
       .filter(item => !checkCellIsEmpty(item.value));
     const formDataIds = formData.map(it => it.controlId);
     let paramControls = draftFormControls.filter(it => !_.includes(formDataIds, it.controlId)).concat(formData);
 
     return paramControls.map(it => {
       if (it.type === 42) {
-        let val = JSON.parse(JSON.stringify(it.value));
-        return !_.isObject(val)
-          ? formatControlToServer({
-              ...it,
-              value: JSON.stringify({
-                bucket: 4,
-                key: val.match(/pic\/\d+\/[0-9a-zA-Z]+(.png)/g)[0],
-              }),
-            })
-          : formatControlToServer(it);
+        let val = it.value && JSON.parse(JSON.stringify(it.value));
+        if (val) {
+          return !_.isObject(val)
+            ? formatControlToServer({
+                ...it,
+                value: JSON.stringify({
+                  bucket: 4,
+                  key: val.match(/pic\/\d+\/[0-9a-zA-Z]+(.png)/g)[0],
+                }),
+              })
+            : formatControlToServer(it);
+        }
+        return formatControlToServer(it);
       }
       if (it.type === 34) {
         return formatControlToServer({
@@ -198,7 +202,7 @@ class Record extends Component {
       if (it.type === 14) {
         return formatControlToServer(it, { isSubListCopy: true });
       }
-      return formatControlToServer(it);
+      return formatControlToServer(it, { isNewRecord: true, isDraft: true });
     });
   };
   saveDraftData = ({ draftType }) => {
@@ -352,20 +356,20 @@ class Record extends Component {
         viewId,
         objectType: 2,
       })
-      .then(shareUrl => {
+      .then(data => {
         Toast.hide();
         if (navigator.share) {
           navigator
             .share({
               title: _l('系统'),
               text: document.title,
-              url: shareUrl,
+              url: data.shareLink,
             })
             .then(() => {
               Toast.info(_l('分享成功'));
             });
         } else {
-          copy(shareUrl);
+          copy(data.shareLink);
           Toast.info(_l('复制成功'));
         }
       });
@@ -479,7 +483,7 @@ class Record extends Component {
             alert(`${_l('%0不允许重复', checkControl.controlName)}`, 3);
             this.setState({ submitLoading: false });
           } else {
-            alert(_l('记录添加失败'));
+            alert(_l('记录添加失败'), 2);
             this.setState({ submitLoading: false });
           }
         })
@@ -518,12 +522,12 @@ class Record extends Component {
               this.customwidget.current.uniqueErrorUpdate(result.badData);
             }
           } else {
-            alert(_l('保存失败，请稍后重试'));
+            alert(_l('保存失败，请稍后重试'), 2);
           }
         }
       })
       .fail(error => {
-        alert(_l('保存失败，请稍后重试'));
+        alert(_l('保存失败，请稍后重试'), 2);
       });
   };
   refreshSubList = (tempFormData, updateControlIds) => {
@@ -551,6 +555,15 @@ class Record extends Component {
     const wrapEl = document.querySelector(`.mobileSheetRowRecord-${rowId}`);
     const tabsEl = wrapEl.querySelector('.tabsWrapper');
     const fixedTabsEl = wrapEl.querySelector('.fixedTabs');
+    const fixedSheetNameWrapEl = wrapEl.querySelector('.fixedSheetNameWrap');
+    const mobileFormTopEl = wrapEl.querySelector('.mobileFormTop');
+    if (fixedSheetNameWrapEl) {
+      if (scrollTop >= mobileFormTopEl.clientHeight) {
+        fixedSheetNameWrapEl && fixedSheetNameWrapEl.classList.add('fixedSheetNameWrapBG');
+      } else {
+        fixedSheetNameWrapEl && fixedSheetNameWrapEl.classList.remove('fixedSheetNameWrapBG');
+      }
+    }
     if (tabsEl && tabsEl.offsetTop - (isModal ? 55 : 0) <= scrollTop) {
       fixedTabsEl && fixedTabsEl.classList.remove('hide');
     } else {
@@ -623,7 +636,7 @@ class Record extends Component {
           alert(_l('删除成功'));
           history.back();
         } else {
-          alert(_l('删除失败'));
+          alert(_l('删除失败'), 2);
         }
       });
   };
@@ -641,11 +654,10 @@ class Record extends Component {
 
   renderRecordBtns() {
     const { isSubList, editable, getDataType } = this.props;
-    const { isEdit, sheetRow, customBtns, advancedSetting, rules, switchPermit } = this.state;
+    const { isEdit, sheetRow, customBtns, advancedSetting, rules, switchPermit, rulesLocked } = this.state;
     const baseIds = this.getBaseIds();
     const allowEdit = sheetRow.allowEdit || editable;
     const allowDelete = sheetRow.allowDelete || (isSubList && editable);
-    const rulesLocked = checkRuleLocked(rules, sheetRow.receiveControls);
     const allowShare =
       isOpenPermit(permitList.recordShareSwitch, switchPermit, baseIds.viewId) && !md.global.Account.isPortal;
     let copyCustomBtns = _.cloneDeep(customBtns);
@@ -657,7 +669,7 @@ class Record extends Component {
         : [];
 
     return (
-      <div className={cx('btnsWrapper', { hide: !allowEdit && _.isEmpty(customBtns) })}>
+      <div className="btnsWrapper">
         <div className="flexRow">
           {isEdit ? (
             <Fragment>
@@ -786,7 +798,7 @@ class Record extends Component {
   renderCustomFields() {
     const baseIds = this.getBaseIds();
     const { getDataType, from } = this.props;
-    const { sheetRow, isEdit, random, rules, isWorksheetQuery, switchPermit } = this.state;
+    const { sheetRow, isEdit, random, rules, isWorksheetQuery, switchPermit, advancedSetting } = this.state;
 
     return (
       <div className={cx('flex customFieldsWrapper', { edit: isEdit })} ref={con => (this.con = con)}>
@@ -822,13 +834,17 @@ class Record extends Component {
             });
           }}
           verifyAllControls={getDataType === 21}
+          widgetStyle={advancedSetting}
         />
       </div>
     );
   }
   renderAction() {
-    const { currentTab } = this.state;
+    const { currentTab, rulesLocked } = this.state;
     if (currentTab.id) {
+      if (rulesLocked) {
+        return undefined;
+      }
       return currentTab.id === 'approve' ? undefined : (
         <RelationAction controlId={currentTab.id} getDataType={this.props.getDataType} />
       );
@@ -908,7 +924,17 @@ class Record extends Component {
   };
   renderContent() {
     const baseIds = this.getBaseIds();
-    const { sheetRow, isEdit, random, currentTab, rules, approveCount, advancedSetting, switchPermit } = this.state;
+    const {
+      sheetRow,
+      isEdit,
+      random,
+      currentTab,
+      rules,
+      approveCount,
+      advancedSetting,
+      switchPermit,
+      formStyleImggeData = [],
+    } = this.state;
     const { relationRow, isModal, onClose, getDataType } = this.props;
     const viewHideControls = _.get(sheetRow, 'view.controls') || [];
     const titleControl = _.find(this.formData || [], control => control.attribute === 1);
@@ -916,7 +942,7 @@ class Record extends Component {
     const recordTitle = titleControl ? renderCellText(titleControl) || defaultTitle : defaultTitle;
     const allowApprove =
       isOpenPermit(permitList.approveDetailsSwitch, switchPermit, baseIds.viewId) &&
-      !window.share &&
+      !this.isSharePage &&
       getDataType !== 21;
     const recordMuster = _.sortBy(
       updateRulesData({ rules: rules, data: sheetRow.receiveControls }).filter(
@@ -972,21 +998,36 @@ class Record extends Component {
               : `${sheetRow.entityName}${_l('详情')}`
           }
         />
-        {(isModal ? !isEdit : true) && (
-          <div className="flexRow sheetNameWrap">
-            {getDataType === 21 ? (
-              <div className="sheetName ellipsis">{`${advancedSetting.title || '创建记录'}（${_l('草稿')}）`}</div>
-            ) : (
-              <div className="sheetName ellipsis">{_l('工作表：%0', sheetRow.worksheetName)}</div>
+        {!isEdit && _.get(advancedSetting, 'coverid') && !_.isEmpty(formStyleImggeData)
+          ? ''
+          : (isModal ? !isEdit : true) && (
+              <div className="flexRow sheetNameWrap">
+                {getDataType === 21 ? (
+                  <div className="sheetName ellipsis">{`${advancedSetting.title || '创建记录'}（${_l('草稿')}）`}</div>
+                ) : (
+                  <div className="sheetName ellipsis">{_l('工作表：%0', sheetRow.worksheetName)}</div>
+                )}
+                {!isEdit && onClose && (
+                  <Icon icon="closeelement-bg-circle" className="Gray_9e Font22 mLeft5" onClick={onClose} />
+                )}
+              </div>
             )}
-            {!isEdit && onClose && <Icon icon="closeelement-bg-circle" className="Gray_9e Font22 mLeft5" onClick={onClose} />}
-          </div>
-        )}
         <div
           className="flexColumn flex recordScroll"
           style={{ overflowX: 'hidden', overflowY: 'auto' }}
           onScroll={this.handleScroll}
         >
+          {!isEdit && _.get(advancedSetting, 'coverid') && !_.isEmpty(formStyleImggeData) && (
+            <div className="mobileFormTop Relative">
+              <FormCover flag={random.toString()} formData={this.formData} widgetStyle={advancedSetting} />
+              <div className="flexRow sheetNameWrap fixedSheetNameWrap ">
+                <div className="sheetName ellipsis">{_l('工作表：%0', sheetRow.worksheetName)}</div>
+                {!isEdit && onClose && (
+                  <Icon icon="closeelement-bg-circle" className="Gray_9e Font22 mLeft5" onClick={onClose} />
+                )}
+              </div>
+            </div>
+          )}
           {!isEdit && (
             <div className={cx('header', { pTop10: !isModal })}>
               <div className="title">{recordTitle}</div>
@@ -1003,7 +1044,7 @@ class Record extends Component {
             {this.renderTabs(tabs, false)}
           </div>
         )}
-        {!window.share && this.renderAction()}
+        {!this.isSharePage && this.renderAction()}
       </Fragment>
     );
   }
@@ -1061,12 +1102,10 @@ class Record extends Component {
         )}
         {abnormal ? this.renderWithoutJurisdiction() : this.renderContent()}
         {this.renderRecordAction()}
-        <div
-          className={cx('extraAction', { low: !(sheetRow.allowEdit || editable) && _.isEmpty(customBtns) })}
-          style={{ bottom: currentTab.id == 'approve' ? 13 : undefined }}
-        >
+        <div className="extraAction" style={{ bottom: currentTab.id == 'approve' ? 13 : undefined }}>
           <div className="backContainer">{!isEdit && !isModal && this.renderBack()}</div>
-          {(((!getDataType || getDataType !== 21) && !window.share &&
+          {(((!getDataType || getDataType !== 21) &&
+            !this.isSharePage &&
             !isPortal &&
             isOpenPermit(permitList.recordDiscussSwitch, switchPermit, viewId)) ||
             (isPortal && allowExAccountDiscuss)) && ( //外部门户开启讨论的

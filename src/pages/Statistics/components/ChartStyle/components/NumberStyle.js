@@ -44,14 +44,6 @@ const Wrap = styled.div`
     border-radius: 3px;
     justify-content: center;
   }
-  .columnCountInput {
-    .disabled {
-      color: #ddd;
-    }
-    .ant-input-suffix {
-      width: 38px !important;
-    }
-  }
   .square, .circle {
     width: 12px;
     height: 12px;
@@ -65,18 +57,26 @@ const Wrap = styled.div`
   }
 `;
 
-const sizeTypes = [{
+export const sizeTypes = [{
   name: _l('小'),
+  value: 20,
+  titleValue: 15,
+}, {
+  name: _l('默认'),
   value: 28,
+  titleValue: 15,
 }, {
   name: _l('中'),
   value: 42,
+  titleValue: 18,
 }, {
   name: _l('大'),
   value: 80,
+  titleValue: 24,
 }, {
   name: _l('超大'),
   value: 120,
+  titleValue: 32,
 }];
 
 const alignTypes = [{
@@ -429,7 +429,7 @@ export function numberSummaryPanelGenerator(props) {
   const { xaxes, yaxisList, summary, displaySetup } = currentReport;
   const switchChecked = displaySetup.showTotal;
 
-  if (yaxisList.length === 1 && !xaxes.controlId) {
+  if (!xaxes.controlId) {
     return null;
   }
 

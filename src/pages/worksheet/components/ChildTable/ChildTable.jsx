@@ -77,7 +77,7 @@ class ChildTable extends React.Component {
   }
 
   componentDidMount() {
-    const { rows, control, recordId, initRowIsCreate = true } = this.props;
+    const { rows, control, recordId, initRowIsCreate = true, initRows } = this.props;
     this.updateDefsourceOfControl();
     if (recordId) {
       if (
@@ -89,6 +89,13 @@ class ChildTable extends React.Component {
         this.handleClearAndSetRows(
           control.value.rows.map(r => this.newRow(r, { isDefaultValue: true, isQueryWorksheetFill: true })),
         );
+        this.setState({ loading: false });
+      } else if (
+        !rows.length &&
+        _.isObject(control.value) &&
+        (!_.isEmpty(_.get(control, 'value.updated')) || !_.isEmpty(_.get(control, 'value.deleted')))
+      ) {
+        initRows(control.value.rows);
         this.setState({ loading: false });
       } else {
         this.loadRows();
@@ -103,6 +110,7 @@ class ChildTable extends React.Component {
               this.newRow(r, {
                 isDefaultValue: true,
                 isCreate: _.isUndefined(r.initRowIsCreate) ? initRowIsCreate : r.initRowIsCreate,
+                isQueryWorksheetFill: true,
               }),
             ),
           );
@@ -115,8 +123,8 @@ class ChildTable extends React.Component {
       control.addRefreshEvents(control.controlId, this.refresh);
     }
     this.rowsCache = {};
-    $(this.childTableCon).on('mouseenter', '.cell .ghostAngle', this.handleMouseEnter);
-    $(this.childTableCon).on('mouseleave', '.cell .ghostAngle', this.handleMouseLeave);
+    $(this.childTableCon).on('mouseenter', '.cell:not(.row-head)', this.handleMouseEnter);
+    $(this.childTableCon).on('mouseleave', '.cell:not(.row-head)', this.handleMouseLeave);
     window.addEventListener('keydown', this.handleKeyDown);
   }
 
@@ -148,6 +156,10 @@ class ChildTable extends React.Component {
       !_.isEqual(
         (control.relationControls || []).map(a => a.fieldPermission),
         (nextControl.relationControls || []).map(a => a.fieldPermission),
+      ) ||
+      !_.isEqual(
+        (control.relationControls || []).map(a => a.required),
+        (nextControl.relationControls || []).map(a => a.required),
       )
     ) {
       this.setState({ controls: this.getControls(nextProps) });
@@ -190,8 +202,8 @@ class ChildTable extends React.Component {
     if (_.isFunction(control.addRefreshEvents)) {
       control.addRefreshEvents(control.controlId, undefined);
     }
-    $(this.childTableCon).off('mouseenter', '.cell .ghostAngle', this.handleMouseEnter);
-    $(this.childTableCon).off('mouseleave', '.cell .ghostAngle', this.handleMouseLeave);
+    $(this.childTableCon).off('mouseenter', '.cell:not(.row-head)', this.handleMouseEnter);
+    $(this.childTableCon).off('mouseleave', '.cell:not(.row-head)', this.handleMouseLeave);
     window.removeEventListener('keydown', this.handleKeyDown);
   }
 
@@ -219,19 +231,22 @@ class ChildTable extends React.Component {
         if (!_.find(showControls, scid => control.controlId === scid)) {
           control.fieldPermission = '000';
         } else {
-          // control.fieldPermission = isWorkflow ? '111' : replaceByIndex(control.fieldPermission || '111', 2, '1');
           control.fieldPermission = replaceByIndex(control.fieldPermission || '111', 2, '1');
         }
-        // if (!isWorkflow) {
-        control.controlPermissions = '111';
-        // }
+        if (!isWorkflow) {
+          control.controlPermissions = '111';
+        } else {
+          control.controlPermissions = replaceByIndex(control.controlPermissions || '111', 2, '1');
+        }
+        if (control.controlId === 'ownerid') {
+          control.controlPermissions = '100';
+        }
         return control;
       },
     );
     result = result.filter(
       c =>
         c &&
-        c.controlId !== 'ownerid' &&
         !(
           window.isPublicWorksheet &&
           _.includes([WIDGETS_TO_API_TYPE_ENUM.USER_PICKER, WIDGETS_TO_API_TYPE_ENUM.DEPARTMENT], c.type)
@@ -285,7 +300,15 @@ class ChildTable extends React.Component {
                     JSON.stringify({
                       rowid: recordId,
                       ...[{}, ...masterData.formData.filter(c => c.type !== 34)].reduce((a = {}, b = {}) =>
-                        Object.assign(a, { [b.controlId]: b.value }),
+                        Object.assign(a, {
+                          [b.controlId]:
+                            b.type === 29 && _.isObject(b.value) && b.value.records
+                              ? JSON.stringify(
+                                  // 子表使用双向关联字段作为默认值 RELATERECORD_OBJECT
+                                  b.value.records.map(r => ({ sid: r.rowid, sourcevalue: JSON.stringify(r) })),
+                                )
+                              : b.value,
+                        }),
                       ),
                     }),
                   ]),
@@ -388,9 +411,6 @@ class ChildTable extends React.Component {
   rowUpdate({ row, controlId, value, rowId } = {}, { isCreate = false, isQueryWorksheetFill = false } = {}) {
     const { masterData, projectId, recordId, searchConfig, rules = [] } = this.props;
     const asyncUpdateCell = (cid, newValue) => {
-      if (isQueryWorksheetFill && row[cid]) {
-        return;
-      }
       this.handleUpdateCell(
         {
           control: this.getControl(cid),
@@ -472,9 +492,12 @@ class ChildTable extends React.Component {
       try {
         this.worksheettable.current.table.refs.setScroll(0, rows.length + 1 > 15 ? 100000 : 0);
         setTimeout(() => {
-          this.worksheettable.current.table.refs.dom.current
-            .querySelector('.cell.row-' + rows.length + '.canedit')
-            .click();
+          const activeCell = this.worksheettable.current.table.refs.dom.current.querySelector(
+            '.cell.row-' + rows.length + '.canedit',
+          );
+          if (activeCell) {
+            activeCell.click();
+          }
         }, 100);
       } catch (err) {}
     }, 100);
@@ -645,7 +668,7 @@ class ChildTable extends React.Component {
     const cellIsEditing = /iseditting/.test(cell.className);
     const rowIndex = Number(cell.className.match(/ row-([0-9]+) /)[1]);
     const columnIndex = Number(cell.className.match(/ col-([0-9]+) /)[1]);
-    const rowId = (rows[rowIndex - 1] || {}).rowid;
+    const rowId = (rows[rowIndex] || {}).rowid;
     const controlId = (columns[columnIndex - 1] || {}).controlId;
     if (hasError && !cellIsEditing && rowId && controlId) {
       const error = cellErrors[rowId + '-' + controlId];
@@ -659,7 +682,7 @@ class ChildTable extends React.Component {
               height: 26px;
               line-height: 26px;
               white-space: nowrap;
-              background: #ff4646;
+              background: #f44336;
               zIndex: 2;
               color: #fff";
           >
@@ -668,7 +691,7 @@ class ChildTable extends React.Component {
         cell.parentElement.appendChild(errorEle);
         const top =
           cell.offsetTop +
-          (/row-1/.test(cell.getAttribute('class')) ? cell.offsetHeight - 1 : -1 * errorEle.offsetHeight);
+          (/row-0/.test(cell.getAttribute('class')) ? cell.offsetHeight - 1 : -1 * errorEle.offsetHeight);
         const left = cell.offsetLeft;
         errorEle.style.top = top + 'px';
         errorEle.style.left = left + 'px';
@@ -715,11 +738,6 @@ class ChildTable extends React.Component {
     const allowAddByLine =
       (_.isUndefined(_.get(control, 'advancedSetting.allowsingle')) && !addRowFromRelateRecords) || allowsingle;
     const controlPermission = controlState(control, from);
-    // if (isWorkflow && controlPermission.editable) {
-    //   allowadd = true;
-    //   allowedit = true;
-    //   allowcancel = true;
-    // }
     const tableRows = rows.map(row => (!/^temp/.test(row.rowid) ? { ...row, allowedit } : row));
     const disabled = !controlPermission.editable || control.disabled;
     const noColumns = !controls.length;
@@ -735,7 +753,7 @@ class ChildTable extends React.Component {
       return <div className="Gray_9e">{_l('没有支持填写的字段')}</div>;
     }
     return (
-      <div className="childTableCon" ref={con => (this.childTableCon = con)}>
+      <div className="childTableCon" ref={con => (this.childTableCon = con)} onClick={e => e.stopPropagation()}>
         {this.state.error && <span className="errorTip"> {_l('请正确填写%0', control.controlName)} </span>}
         {!isMobile && !loading && (
           <div style={{ height: tableHeight }}>
@@ -924,6 +942,7 @@ class ChildTable extends React.Component {
         )}
         {recordVisible && (
           <RowDetailComponent
+            isWorkflow
             ignoreLock={(tableRows[previewRowIndex] || {}).isEdited}
             visible
             aglinBottom={!!recordId}

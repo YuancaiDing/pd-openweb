@@ -270,6 +270,20 @@ export default {
      return $.api('WorkWeiXin', 'EditDDProjectClientWorkingPattern', args, options);
    },
   /**
+  * 编辑钉钉消息链接可配置打开方式
+1 侧边栏打开（默认），2 浏览器打开
+  * @param {Object} args 请求参数
+  * @param {string} args.projectId 网络id
+  * @param {integer} args.status 1代表开通；2代表关闭
+  * @param {Object} options 配置参数
+  * @param {Boolean} options.silent 是否禁止错误弹层
+  * @returns {Promise<Boolean, ErrorModel>}
+  **/
+   editDDMessagUrlPcSlide: function (args, options = {}) {
+     
+     return $.api('WorkWeiXin', 'EditDDMessagUrlPcSlide', args, options);
+   },
+  /**
   * 编辑钉钉消息是否进入待办任务
   * @param {Object} args 请求参数
   * @param {string} args.projectId 网络id
@@ -640,6 +654,19 @@ export default {
    getFeishuProjectSettingInfo: function (args, options = {}) {
      
      return $.api('WorkWeiXin', 'GetFeishuProjectSettingInfo', args, options);
+   },
+  /**
+  * 获取飞书js-sdk的签名信息
+  * @param {Object} args 请求参数
+  * @param {string} args.projectId 网络id
+  * @param {string} args.url 调用JS接口页面的完整URL，不包含#及其后面部分
+  * @param {Object} options 配置参数
+  * @param {Boolean} options.silent 是否禁止错误弹层
+  * @returns {Promise<Boolean, ErrorModel>}
+  **/
+   getFeiShuSignatureInfo: function (args, options = {}) {
+     
+     return $.api('WorkWeiXin', 'GetFeiShuSignatureInfo', args, options);
    },
   /**
   * 编辑网络的飞书自建应用集成设置

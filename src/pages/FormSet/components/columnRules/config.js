@@ -79,9 +79,9 @@ function deepSearch(tree = [], controlId) {
   return retNode;
 }
 
-//备注、分段没有标题（兼容）
+//备注、分割线没有标题（兼容）
 export function getControlSpecialName(type) {
-  return type ? (type === 10010 ? _l('备注') : _l('分段')) : _l('字段已删除');
+  return type ? (type === 10010 ? _l('备注') : _l('分割线')) : _l('字段已删除');
 }
 
 //根据controls获取controlName
@@ -118,7 +118,7 @@ export function getTextById(tree, controls = []) {
 
 //过滤隐藏的子表字段
 export function getNewDropDownData(dropDownData = [], actionType) {
-  // 公式 汇总 文本组合 自动编号 他表字段 分段 大写金额 备注 文本识别
+  // 公式 汇总 文本组合 自动编号 他表字段 分割线 大写金额 备注 文本识别
   let filterControls = [];
   if (_.includes([3, 4, 5], actionType)) {
     filterControls.push(31, 38, 37, 32, 33, 30, 22, 25, 45, 47, 10010);
@@ -146,18 +146,29 @@ export function getNewDropDownData(dropDownData = [], actionType) {
 }
 
 // 过滤不符合条件的已选字段
-export const filterUnAvailable = (controlConfig = {}, worksheetControls = []) => {
+export const filterUnAvailable = (controlConfig = {}, worksheetControls = [], type) => {
   const { controls = [] } = controlConfig;
   const dropDownData = getNewDropDownData(worksheetControls, controlConfig.type);
   let newControls = [];
   controls.map(item => {
     let newItem = { ...item };
-    if (_.find(dropDownData, da => da.controlId === item.controlId)) {
+    const curItem = _.find(dropDownData, da => da.controlId === item.controlId);
+    if (curItem) {
       if (item.childControlIds && item.childControlIds.length > 0) {
         const { relationControls = [] } = _.find(dropDownData, i => i.controlId === item.controlId) || {};
         newItem.childControlIds = item.childControlIds.filter(i => _.find(relationControls, re => re.controlId === i));
       }
-      newControls.push(item);
+      // 已选的必填关联多条列表字段过滤
+      if (
+        !(
+          type === 5 &&
+          curItem.type === 29 &&
+          _.get(curItem.advancedSetting || {}, 'showtype') === '2' &&
+          !_.get(item, 'childControlIds.length')
+        )
+      ) {
+        newControls.push(item);
+      }
     }
   });
   return { ...controlConfig, controls: newControls };

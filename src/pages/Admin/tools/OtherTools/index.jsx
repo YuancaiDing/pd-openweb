@@ -10,7 +10,7 @@ import AdminCommon from 'src/pages/Admin/common/common';
 import ExportDialog from '../modules/ExportDialog';
 import Stat from '../../stat';
 import 'src/components/uploadAttachment/uploadAttachment';
-import 'src/components/dialogSelectUser/dialogSelectUser';
+import dialogSelectUser from 'src/components/dialogSelectUser/dialogSelectUser';
 import dialogSelectGroups from 'src/components/dialogSelectGroups';
 const { TextArea } = Input;
 
@@ -145,7 +145,7 @@ export default class OtherTools extends Component {
   //选择用户
   selectUser() {
     const _this = this;
-    $({}).dialogSelectUser({
+    dialogSelectUser({
       fromAdmin: true,
       SelectUserSettings: {
         projectId: Config.projectId,
@@ -243,7 +243,7 @@ export default class OtherTools extends Component {
       attachmentStr = JSON.stringify(attachments);
     }
 
-    alert(_l('正在发送...'), 1, false);
+    alert(_l('正在发送...'), 1);
 
     messageController
       .sendNotice({
@@ -266,7 +266,7 @@ export default class OtherTools extends Component {
             alert(_l('发布成功'));
           } else if (failCount) {
             const message = '<div className="Font12 Gray_c">' + _l('%0人发送失败', failCount) + '</div>';
-            alert(message, 3, false);
+            alert(message, 3);
           }
           this.setState({
             content: '',

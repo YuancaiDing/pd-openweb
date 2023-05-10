@@ -11,7 +11,7 @@ import UserHead from 'src/pages/feed/components/userHead/userHead';
 import ajaxRequest from 'src/api/appManagement';
 import homeAppAjax from 'src/api/homeApp';
 import projectSettingAjaxRequest from 'src/api/projectSetting';
-import 'src/components/dialogSelectUser/dialogSelectUser';
+import dialogSelectUser from 'src/components/dialogSelectUser/dialogSelectUser';
 import CustomIcon from './CustomIcon';
 import SvgIcon from 'src/components/SvgIcon';
 import Trigger from 'rc-trigger';
@@ -205,12 +205,13 @@ export default class AppManagement extends Component {
         <div className={cx('iconWrap mLeft10', { unable: !item.status })} style={{ backgroundColor: item.iconColor }}>
           <SvgIcon url={item.iconUrl} fill="#fff" size={24} />
         </div>
-        <div className="flex name mLeft10 mRight40">
+        <div className="flex name mLeft10 mRight40 overflowHidden">
           <div
-            className={cx('flexColumn nameBox ThemeColor3', { unable: !item.status })}
+            className={cx('flexRow nameBox ThemeColor3', { unable: !item.status })}
             onClick={() => this.checkIsAppAdmin(item.appId, item.appName)}
           >
             <div className="ellipsis Font14">{item.appName}</div>
+            {item.isLock && <Icon icon="lock" className="Gray_bd mLeft20 Font16" />}
           </div>
         </div>
         <div className="columnWidth">{item.sheetCount.toString().replace(/(\d)(?=(\d{3})+$)/g, '$1,')}</div>
@@ -254,7 +255,7 @@ export default class AppManagement extends Component {
             popup={() => {
               return (
                 <ul className="optionPanelTrigger">
-                  {item.isGoods || !featureType ? null : (
+                  {item.isLock || item.isGoods || !featureType ? null : (
                     <li
                       onClick={() => {
                         if (featureType === '2') {
@@ -283,11 +284,12 @@ export default class AppManagement extends Component {
                             total: oldTotal - 1,
                             hiddenIds: _.uniq([...hiddenIds, item.appId]),
                           });
-                          homeAppAjax.deleteApp({
-                            appId: item.appId,
-                            projectId,
-                            isHomePage: false,
-                          })
+                          homeAppAjax
+                            .deleteApp({
+                              appId: item.appId,
+                              projectId,
+                              isHomePage: false,
+                            })
                             .then(res => {
                               if (res.data) {
                                 this.setState({
@@ -375,7 +377,7 @@ export default class AppManagement extends Component {
     };
     ReactDom.render(
       <Dialog {...options}>
-        <ImportApp closeDialog={() => this.closeDialog('importSingleAppDialog')}  />
+        <ImportApp closeDialog={() => this.closeDialog('importSingleAppDialog')} />
       </Dialog>,
       document.createElement('div'),
     );
@@ -448,7 +450,7 @@ export default class AppManagement extends Component {
 
           this.setState({ list });
         } else {
-          alert(_l('操作失败，请稍候重试！', 2));
+          alert(_l('操作失败，请稍候重试！'), 2);
         }
       });
     };
@@ -489,7 +491,7 @@ export default class AppManagement extends Component {
   chargeReadyFn = (evt, appId, accountId) => {
     const that = this;
     evt.on('click', '.updateAppCharge', function () {
-      $(this).dialogSelectUser({
+      dialogSelectUser({
         sourceId: that.props.match.params.projectId,
         fromType: 4,
         fromAdmin: true,
@@ -832,13 +834,13 @@ export default class AppManagement extends Component {
           className="appLogDrawerContainer"
           width={480}
           title={
-            <div>
+            <div className="flexRow">
+              <span className="flex">{_l('日志')}</span>
               <Icon
                 icon="close"
-                className="mRight16 Font20 Gray_9e Hand"
+                className=" Font20 Gray_9e Hand"
                 onClick={() => this.setState({ drawerVisible: false })}
               />
-              <span>{_l('日志')}</span>
             </div>
           }
           placement="right"

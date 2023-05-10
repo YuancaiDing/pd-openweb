@@ -1,4 +1,4 @@
-export const DEFAULT_INTRO_LINK = 'https://help.mingdao.com/sheet2.html';
+export const DEFAULT_INTRO_LINK = 'https://help.mingdao.com/zh/sheet2.html';
 export const OPTION_COLORS_LIST = [
   '#2196F3',
   '#08C9C9',
@@ -48,7 +48,7 @@ export const OPTION_COLORS_LIST_HOVER = [
   14：附件
   10010：备注
   21：自由连接
-  22：分段
+  22：分割线
   34: 子表
   45: 嵌入
   49: 查询按钮
@@ -57,7 +57,7 @@ export const NOT_AS_TITLE_CONTROL = [14, 10010, 21, 22, 29, 34, 35, 36, 37, 41, 
 
 /**
  * 不需要设置只读的控件
- * 22： 分段
+ * 22： 分割线
  * 25: 大写金额
  * 30：他表字段
  * 31：公式
@@ -70,24 +70,23 @@ export const NOT_AS_TITLE_CONTROL = [14, 10010, 21, 22, 29, 34, 35, 36, 37, 41, 
 export const NOT_NEED_SET_READONLY_CONTROL = [22, 25, 30, 31, 32, 33, 37, 38, 43, 45, 47, 10010];
 
 /**
- * 无内容控件: 备注、分段,
+ * 无内容控件: 备注、分割线,
  *
  */
 export const NO_CONTENT_CONTROL = [10010, 22];
 
 /**
  * 无引导文字控件
- * 14：附件
  * 33: 自动编号
  * 36: 开关
  */
 
-export const HAS_EXPLAIN_CONTROL = [2, 3, 4, 5, 6, 7, 8, 35, 49, 50];
+export const HAS_EXPLAIN_CONTROL = [2, 3, 4, 5, 6, 7, 8, 14, 35, 43, 49, 50];
 
 /**
  * 没有自定义配置的控件
  * 邮件
- * 分段
+ * 分割线
  * 检查框
  * 富文本
  * 签名
@@ -122,7 +121,7 @@ export const NEED_SPECIAL_DISPLAY_CONTROLS = [
 
 export const HAVE_CONFIG_CONTROL = [2, 3, 9, 10, 11, 15, 16, 26, 28, 32, 35, 40, 42, 46];
 // 独占一行的控件
-export const FULL_LINE_CONTROL = [14, 21, 22, 34, 41, 10010];
+export const FULL_LINE_CONTROL = [21, 22, 34, 41, 10010];
 
 export const NOT_NEED_DELETE_CONFIRM = [22, 25, 30, 31, 32, 37, 38, 43, 10010];
 

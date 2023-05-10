@@ -49,6 +49,18 @@ function getGlobalMeta({ allownotlogin, transfertoken } = {}, cb = () => {}) {
       return;
     }
 
+    const ua = window.navigator.userAgent.toLowerCase();
+    if (
+      ua.match(/MicroMessenger/i) == 'micromessenger' &&
+      ((window.subPath && !data['md.global'].Account.isPortal) ||
+        (!window.subPath && data['md.global'].Account.isPortal))
+    ) {
+      location.href = `${
+        data['md.global'].Account.isPortal ? '' : window.subPath || ''
+      }/logout?ReturnUrl=${encodeURIComponent(location.href)}`;
+      return;
+    }
+
     window.config = data.config;
     window.md.global = data['md.global'];
     window.md.global.Config.ServiceTel = '400-665-6655';
@@ -160,6 +172,7 @@ function parseShareId() {
     window.shareState.shareId = (location.pathname.match(/.*\/public\/record\/(\w{24})/) || '')[1];
   }
   if (/\/public\/workflow/.test(location.pathname)) {
+    window.shareState.isPublicWorkflowRecord = true;
     window.shareState.shareId = (location.pathname.match(/.*\/public\/workflow\/(\w{24})/) || '')[1];
   }
 }

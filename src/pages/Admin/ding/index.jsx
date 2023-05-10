@@ -17,6 +17,10 @@ const optionTypes = [
   { label: _l('新开浏览器打开'), key: 1 },
   { label: _l('钉钉内打开'), key: 2 },
 ];
+const messageLinkTypes = [
+  { label: _l('独立窗口'), key: 2 },
+  { label: _l('侧边栏打开'), key: 1 },
+];
 const FEATURE_ID = 10;
 
 export default class Ding extends React.Component {
@@ -78,6 +82,7 @@ export default class Ding extends React.Component {
           show2: !(res.corpId && res.agentId && res.appKey && res.appSecret && res.status != 2),
           intergrationClientWorkingPattern: res.intergrationClientWorkingPattern,
           intergrationTodoMessageEnabled: res.intergrationTodoMessageEnabled,
+          ddMessagUrlPcSlide: res.ddMessagUrlPcSlide,
           status: res.status,
         });
       }
@@ -487,6 +492,21 @@ export default class Ding extends React.Component {
     });
   }
 
+  handleChangeMessageLinkWay = value => {
+    Ajax.editDDMessagUrlPcSlide({
+      projectId: Config.projectId,
+      status: value,
+    }).then(res => {
+      if (res) {
+        this.setState({
+          ddMessagUrlPcSlide: value,
+        });
+      } else {
+        alert('失败');
+      }
+    });
+  };
+
   // 获取初始密码值
   getInitialPassword = () => {
     Ajax.getIntergrationAccountInitializeInfo({
@@ -535,6 +555,20 @@ export default class Ding extends React.Component {
                   );
                 })}
               </div>
+              <div className="stepItem">
+                <h3 className="stepTitle Font16 Gray pBottom5">{_l('消息链接')}</h3>
+                {messageLinkTypes.map(item => {
+                  return (
+                    <Radio
+                      className="Block mTop20"
+                      disabled={this.state.isCloseDing}
+                      checked={this.state.ddMessagUrlPcSlide === item.key}
+                      text={item.label}
+                      onClick={e => this.handleChangeMessageLinkWay(item.key)}
+                    />
+                  );
+                })}
+              </div>
               <div className="stepItem flexRow valignWrapper">
                 <div className="flexColumn flex">
                   <h3 className="stepTitle Font16 Gray mBottom24">{_l('流程待办同步至钉钉待办任务')}</h3>
@@ -553,7 +587,7 @@ export default class Ding extends React.Component {
                         dangerouslySetInnerHTML={{
                           __html: _l(
                             '此功能需要在钉钉中开启添加待办任务接口权限。%0如何开启？%1',
-                            '<a href="https://help.mingdao.com/dingding.html#1%E3%80%81%E5%BE%85%E5%8A%9E%E6%B6%88%E6%81%AF%E5%90%8C%E6%AD%A5" target="_blank">',
+                            '<a href="https://help.mingdao.com/zh/dingding.html#1%E3%80%81%E5%BE%85%E5%8A%9E%E6%B6%88%E6%81%AF%E5%90%8C%E6%AD%A5" target="_blank">',
                             '</a>',
                           ),
                         }}

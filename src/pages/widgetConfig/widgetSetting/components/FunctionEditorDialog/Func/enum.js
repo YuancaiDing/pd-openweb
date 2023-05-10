@@ -4,7 +4,7 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 dayjs.extend(customParseFormat);
 dayjs.extend(isBetween);
 import _ from 'lodash';
-import { calcDate } from 'worksheet/util-purejs';
+import { calcDate, countChar } from 'worksheet/util-purejs';
 import { WIDGETS_TO_API_TYPE_ENUM } from 'pages/widgetConfig/config/widget';
 
 function newDate(dateStr) {
@@ -15,11 +15,11 @@ function isDateStr(str) {
   return newDate(str).toString() !== 'Invalid Date';
 }
 function checkIsTime(str) {
-  return /^\w\w:\w\w:\w\w$/.test(str);
+  return /^\w\w:\w\w(:\w\w)?$/.test(str);
 }
 
 function completeTime(str) {
-  return checkIsTime(str) ? dayjs(str, 'HH:mm:ss').format() : str;
+  return checkIsTime(str) ? dayjs(str, countChar(str, ':') === 2 ? 'HH:mm:ss' : 'HH:mm').format() : str;
 }
 
 function endTimeIsBeforeStartTime(start, end) {
@@ -116,7 +116,7 @@ export const functions = {
   },
   // 为日期加减时间
   DATEADD: function (date, expression, format = 1) {
-    expression = expression.replace(/\+\(undefined\)/g, '');
+    expression = expression.replace(/\+\(undefined\)/g, '').replace(/\((\d+)\)/, ($0, $1) => $1);
     expression = expression.replace(/\w\w:\w\w:\w\w/g, timeStr => {
       const [h, m, s] = dayjs(timeStr, 'HH:mm:ss').format('HH:mm:ss').split(':').map(Number);
       return `${h}h+${m}m+${s}s`;
@@ -177,7 +177,7 @@ export const functions = {
     if (typeof values === 'string' && _.isNumber(+values) && !_.isNaN(+values)) {
       return values;
     }
-    return values.length;
+    return values ? values.length : 0;
   },
   // 条件求和
   // SUMIF: function () {

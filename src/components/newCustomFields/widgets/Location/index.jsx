@@ -2,10 +2,12 @@ import PropTypes from 'prop-types';
 import React, { Component, Fragment } from 'react';
 import styled from 'styled-components';
 import { Icon } from 'ming-ui';
+import { Toast } from 'antd-mobile';
 import Amap from 'ming-ui/components/amap/Amap';
 import MDMap from 'ming-ui/components/amap/MDMap';
 import { FROM } from '../../tools/config';
 import { browserIsMobile } from 'src/util';
+import { bindFeishu } from '../../tools/authentication';
 import _ from 'lodash';
 
 const LocationWrap = styled.div`
@@ -55,6 +57,8 @@ const LocationWrap = styled.div`
   }
 `;
 
+const isFeishu = window.navigator.userAgent.toLowerCase().includes('feishu');
+
 export default class Widgets extends Component {
   static propTypes = {
     from: PropTypes.number,
@@ -70,11 +74,73 @@ export default class Widgets extends Component {
     visible: false,
   };
 
+  handleAuthentication = () => {
+    const { projectId } = this.props;
+    if (window.currentUrl !== location.href) {
+      window.currentUrl = location.href;
+      window.configSuccess = false;
+      window.configLoading = false;
+    }
+    if (window.configSuccess) {
+      this.handleSelectLocation();
+    } else {
+      if (!window.configLoading) {
+        bindFeishu(projectId).then(() => {
+          window.configLoading = false;
+          window.configSuccess = true;
+          this.handleSelectLocation();
+        });
+      }
+    }
+  }
+
+  handleSelectLocation = () => {
+    const { strDefault, onChange } = this.props;
+
+    if ((typeof strDefault === 'string' ? strDefault : '00')[0] === '1') {
+      // 获取经纬度
+      Toast.loading(_l('正在获取取经纬度，请稍后'));
+      window.tt.getLocation({
+        type: 'gcj02',
+        timeout: 5,
+        cacheTimeout: 30,
+        accuracy: 'best',
+        success(res) {
+          const { longitude, latitude } = res;
+          onChange(JSON.stringify({ x: longitude, y: latitude }));
+          Toast.hide();
+        },
+        fail(res) {
+          const { errMsg } = res;
+          if (!(errMsg.includes('cancel') || errMsg.includes('canceled'))) {
+            _alert(JSON.stringify(res));
+          }
+          Toast.hide();
+        }
+      });
+    } else {
+      // 地图打开
+      window.tt.chooseLocation({
+        type: 'gcj02',
+        success(res) {
+          const { longitude, latitude, address, name } = res;
+          onChange(JSON.stringify({ x: longitude, y: latitude, address, title: name }));
+        },
+        fail(res) {
+          const { errMsg } = res;
+          if (!(errMsg.includes('cancel') || errMsg.includes('canceled'))) {
+            _alert(JSON.stringify(res));
+          }
+        }
+      });
+    }
+  }
+
   render() {
     const { disabled, value, enumDefault, enumDefault2, advancedSetting, onChange, from, strDefault } = this.props;
     const { visible } = this.state;
     const isMobile = browserIsMobile();
-    const onlyCanAppUse = (typeof strDefault === 'string' ? strDefault : '00')[0] === '1';
+    const onlyCanAppUse = (typeof strDefault === 'string' ? strDefault : '00')[0] === '1' && !isFeishu;
     let location = null;
 
     if (value) {
@@ -102,7 +168,13 @@ export default class Widgets extends Component {
         {!_.isObject(location) ? (
           <div
             className="customFormControlBox customFormButton flexRow"
-            onClick={() => this.setState({ visible: true })}
+            onClick={() => {
+              if (isFeishu) {
+                this.handleAuthentication();
+              } else {
+                this.setState({ visible: true });
+              }
+            }}
           >
             <span className="flex mRight20 Gray_bd">{_l('请选择')}</span>
             {!disabled && (
@@ -118,7 +190,11 @@ export default class Widgets extends Component {
               if (!isMobile || disabled) {
                 window.open(`https://uri.amap.com/marker?position=${location.x},${location.y}`);
               } else {
-                this.setState({ visible: true });
+                if (isFeishu) {
+                  this.handleAuthentication();
+                } else {
+                  this.setState({ visible: true });
+                }
               }
             }}
           >
@@ -153,7 +229,11 @@ export default class Widgets extends Component {
                         className="Font20 Gray_9e ThemeHoverColor3 pointer"
                         onClick={evt => {
                           evt.stopPropagation();
-                          this.setState({ visible: true });
+                          if (isFeishu) {
+                            this.handleAuthentication();
+                          } else {
+                            this.setState({ visible: true });
+                          }
                         }}
                       />
                     </span>

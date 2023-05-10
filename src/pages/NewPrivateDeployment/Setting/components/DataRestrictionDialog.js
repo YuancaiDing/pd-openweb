@@ -51,6 +51,8 @@ export default class DataRestrictionDialog extends Component {
       worktableBatchOperateDataLimitCount &&
       fileUploadLimitSize &&
       refreshReportInterval &&
+      workflowSubProcessDataLimitCount &&
+      worksheetExcelImportDataLimitCount &&
       exportAppWorksheetLimitCount
     ) {
       privateSysSetting
@@ -80,7 +82,7 @@ export default class DataRestrictionDialog extends Component {
           }
         });
     } else {
-      alert(_l('请输入数值'), 2);
+      alert(_l('请输入0以上的整数'), 2);
     }
   };
   render() {
@@ -148,7 +150,7 @@ export default class DataRestrictionDialog extends Component {
           <span>{_l('条')}</span>
         </div>
         <div className="mBottom20">
-          <div className="mBottom5 Font14">{_l('附件上传上限（单个）')}</div>
+          <div className="mBottom5 Font14">{_l('附件上传上限（单次）')}</div>
           <Input
             className="Width120 mRight10"
             value={fileUploadLimitSize}
@@ -175,7 +177,7 @@ export default class DataRestrictionDialog extends Component {
             className="Width120 mRight10"
             value={exportAppWorksheetLimitCount}
             onChange={value => {
-              this.setState({ exportAppWorksheetLimitCount: formattingValue(value, 200) });
+              this.setState({ exportAppWorksheetLimitCount: formattingValue(value, 500) });
             }}
           />
           <span>{_l('个')}</span>

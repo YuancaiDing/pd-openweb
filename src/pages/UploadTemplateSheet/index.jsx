@@ -5,8 +5,12 @@ import { Icon, Support, Dialog } from 'ming-ui';
 import copy from 'copy-to-clipboard';
 import './index.less';
 import _ from 'lodash';
-import { FILTER_SYS } from 'src/pages/Print/config';
-let controlNo = [22, 10010, 43, 45, 47]; //分段、备注、OCR、嵌入字段,条码/
+import { FILTER_SYS, APPROVAL_SYS } from 'src/pages/Print/config';
+import processVersionAjax from 'src/pages/workflow/api/processVersion';
+
+// let controlNo = [22, 10010, 43, 45, 47]; //分割线、备注、OCR、嵌入字段,条码/
+let controlNo = [22, 10010, 43, 45]; //分割线、备注、OCR、嵌入字段/
+const qrcodeField = ['sharelink', 'privatelink', 'recordid'];
 export default class UploadTemplateSheet extends React.Component {
   constructor(props) {
     super(props);
@@ -36,16 +40,35 @@ export default class UploadTemplateSheet extends React.Component {
           controlName: _l('最近修改时间'),
           type: 16,
         },
+        // {
+        //   controlId: 'qrCode',
+        //   controlName: _l('二维码'),
+        //   type: 16,
+        // },
         {
-          controlId: 'qrCode',
-          controlName: _l('二维码'),
+          controlId: 'sharelink',
+          controlName: _l('二维码（公开分享链接）'),
           type: 16,
+          size: '20*20',
+        },
+        {
+          controlId: 'privatelink',
+          controlName: _l('二维码（内部访问链接）'),
+          type: 16,
+          size: '20*20',
+        },
+        {
+          controlId: 'recordid',
+          controlName: _l('条形码（记录ID）'),
+          type: 16,
+          size: '40*10',
         },
       ],
       cardControls: [],
 
       // 页面是否支持滑动
       scroll: true,
+      approvalList: [],
     };
   }
 
@@ -117,6 +140,12 @@ export default class UploadTemplateSheet extends React.Component {
         else commonControls.push(controls[i]);
       }
 
+      // 流程列表
+      const approval = await processVersionAjax.list({
+        relationId: res.appId,
+        processListType: 11,
+      });
+
       this.setState({
         appId: res.appId,
         worksheetName: res.name,
@@ -132,6 +161,9 @@ export default class UploadTemplateSheet extends React.Component {
         // 关联表、子表字段
         cardControls,
         downLoadUrl: res.downLoadUrl,
+        approvalList: (approval.find(l => l.groupId === worksheetId) || { processList: [] }).processList.map(l => {
+          return { ...l, expandControls: false };
+        }),
       });
 
       // 剪切板功能
@@ -187,6 +219,24 @@ export default class UploadTemplateSheet extends React.Component {
     );
   };
 
+  strQrcodeField = (it, alias = false) => {
+    const { controls } = this.state;
+    const { enumDefault, dataSource } = it;
+    let ISBN = 'ISBN号';
+    if (it.enumDefault2 === 1) {
+      ISBN = 'privatelink';
+    } else if (alias) {
+      ISBN = it.dataSource.slice(1, -1);
+    } else {
+      let control = controls.find(l => l.controlId === it.dataSource.slice(1, -1));
+      control && (ISBN = control.controlName);
+    }
+
+    return `[${enumDefault === 1 ? 'barcode' : 'qrcode'}]${dataSource === '$rowid$' ? 'recordid' : ISBN}${
+      enumDefault === 1 ? '$[40*10]$' : '$[20*20]$'
+    }`;
+  };
+
   renderItem = it => {
     const that = this;
 
@@ -231,14 +281,24 @@ export default class UploadTemplateSheet extends React.Component {
 
           {/** 点击复制图标 */}
           <span className="copySpan">
-            {`#{${it.controlName}${it.type === 29 ? '[S]' : ''}${this.strForFile(it)}}`}
+            {`#{${
+              qrcodeField.indexOf(it.controlId) > -1
+                ? `[${it.controlId === 'recordid' ? 'barcode' : 'qrcode'}]${it.controlId}`
+                : it.type === 47
+                ? this.strQrcodeField(it)
+                : it.controlName
+            }${it.type === 29 ? '[S]' : ''}${this.strForFile(it)}}`}
             {this.renderIcon()}
           </span>
 
           {/** 点击复制二维码图标 */}
           <span className="copySpan">
-            {`#{${it.alias || it.controlId}${it.type === 29 ? '[S]' : ''}${this.strForFile(it)}}`}
-            {it.controlId !== 'qrCode' && this.renderIcon()}
+            {`#{${
+              qrcodeField.indexOf(it.controlId) > -1 ? (it.controlId === 'recordid' ? '[barcode]' : '[qrcode]') : ''
+            }${it.type === 47 ? this.strQrcodeField(it, true) : it.alias || it.controlId}${
+              it.type === 29 ? '[S]' : ''
+            }${this.strForFile(it)}}`}
+            {[qrcodeField].indexOf(it.controlId) < 0 && this.renderIcon()}
           </span>
         </div>
 
@@ -256,7 +316,7 @@ export default class UploadTemplateSheet extends React.Component {
               // 过滤掉关联字段列表类型
               const isRealtionList =
                 control.type === 29 && control.advancedSetting && control.advancedSetting.showtype === '2';
-              // 是否为子表。分段。备注
+              // 是否为子表。分割线。备注
               const isNotSupport = [21, 34].concat(controlNo).includes(control.type);
               return isRealtionList || isNotSupport ? '' : this.renderRelaItem(it, control, true);
             })}
@@ -299,7 +359,7 @@ export default class UploadTemplateSheet extends React.Component {
                 // 过滤掉关联字段列表类型
                 const isRealtionList = type == 29 && advancedSetting && advancedSetting.showtype === '2';
 
-                // 是否为子表、分段、备注
+                // 是否为子表、分割线、备注
                 const isNotSupport = [21, 34].concat(controlNo).includes(type);
                 return !isRealtionList && !isNotSupport ? this.renderRelaItem(it, o, true) : '';
               })}
@@ -315,6 +375,9 @@ export default class UploadTemplateSheet extends React.Component {
    */
   strForFile = data => {
     let o = data.type === 30 ? { ...data, type: !data.sourceControlType ? data.type : data.sourceControlType } : data;
+    if (qrcodeField.indexOf(o.controlId) > -1) {
+      return o.size ? `$[${o.size}]$` : '';
+    }
     return o.type === 42 || o.type === 14 || o.controlId === 'qrCode'
       ? `$[${o.type === 42 ? '48*20' : o.type === 14 ? '90*auto' : '20*20'}]$`
       : '';
@@ -386,7 +449,7 @@ export default class UploadTemplateSheet extends React.Component {
                   '关联记录（列表）、子表字段默认为以表格方式逐行向下列出所有记录的字段值，如需以逗号隔开列出所有记录字段的值，可在字段代码或字段ID加上“[S]”，如#{客户.客户名称}加[S]写法为#{客户.客户名称[S]}。如果希望记录逐条打印，请将以下代码插入到模板中，代码下方的内容将识别为记录的基本单元。',
                 )}
               </span>
-              <Support type={3} href="https://help.mingdao.com/operation18.html" text={_l('帮助')} />
+              <Support type={3} href="https://help.mingdao.com/zh/operation18.html" text={_l('帮助')} />
             </p>
 
             {/** 字段列表 */}
@@ -465,7 +528,7 @@ export default class UploadTemplateSheet extends React.Component {
                         // 过滤掉关联字段列表类型
                         const isRealtionList = type == 29 && advancedSetting && advancedSetting.showtype === '2';
 
-                        // 是否为子表。分段。备注
+                        // 是否为子表。分割线。备注
                         const isNotSupport = controlNo.includes(type) || type == 34;
                         return !isRealtionList && !isNotSupport ? this.renderRelaItem(it, o, false) : '';
                       })}
@@ -476,6 +539,79 @@ export default class UploadTemplateSheet extends React.Component {
             ))}
           </React.Fragment>
         )}
+
+        {/* 审批明细 */}
+        <p className="line" />
+        <div className="title">{_l('审批明细')}</div>
+        <p className="mTop12 Gray_75">
+          {_l(
+            '审批明细默认为以表格方式逐行向下列出各节点负责人的操作明细，如果某条审批流程执行了多次，则只打印发起时间较近的实例；',
+          )}
+        </p>
+        <p className="Gray_75">
+          {_l(
+            '如需以逗号隔开列出各节点负责任的操作明细，可在字段代码或者ID上加上“[S]”，如#{[审批]请假流程.审批意见[S]}；',
+          )}
+        </p>
+        <p className="Gray_75">
+          {_l(
+            '如果希望各节点负责人的操作明细逐条打印，请将以下代码的插入到模板中，代码下方的内容将识别为明细的基本单位。',
+          )}
+          <Support type={3} href="https://help.mingdao.com/zh/operation17.html" text={_l('帮助')} />
+        </p>
+      </div>
+    );
+  };
+
+  renderApprovalList = () => {
+    const { approvalList } = this.state;
+
+    return (
+      <div className="listCon">
+        <div className="bgCon mTop18">
+          <ul>
+            <li>
+              <span>#{_l('审批.整体重复')}#</span>
+              <span>
+                ——
+                {_l('单独一行放置在模板中，表示下方的明细记录需要一条条单独列出。')}
+              </span>
+            </li>
+          </ul>
+        </div>
+        {approvalList.map((item, i) => (
+          <React.Fragment>
+            <p
+              className="mTop20 Bold Font13 pointer"
+              style={{ left: '-1em', position: 'relative' }}
+              onClick={() => {
+                item.expandControls = !item.expandControls;
+                this.setState({ approvalList });
+              }}
+            >
+              <Icon icon={!item.expandControls ? 'arrow-right-tip' : 'arrow-down'} className="copy Font13" />
+              <span>{item.name}</span>
+            </p>
+
+            {item.expandControls && (
+              <React.Fragment>
+                {APPROVAL_SYS.map(l => (
+                  <div className="list">
+                    <span className="textIndent">{`${l.name}`}</span>
+                    <span className="copySpan">
+                      {`#{${_l('[审批]')}${item.name}.${l.name}${l.key === 'signature' ? '$[48*20]$' : ''}}`}
+                      {this.renderIcon()}
+                    </span>
+                    <span className="copySpan">
+                      {`#{${_l('[审批]')}${item.id}.${l.key}}`}
+                      {this.renderIcon()}
+                    </span>
+                  </div>
+                ))}
+              </React.Fragment>
+            )}
+          </React.Fragment>
+        ))}
       </div>
     );
   };
@@ -549,7 +685,7 @@ export default class UploadTemplateSheet extends React.Component {
                   '5. 批量打印时，默认所有数据连续打印，如需实现分页功能（每条数据另起一页），需在模板中的第一个段落配置段前分页，设置方法可参考',
                 )}
               </span>
-              <Support type={3} href="https://help.mingdao.com/operation20.html" text={_l('这里')} />
+              <Support type={3} href="https://help.mingdao.com/zh/operation20.html" text={_l('这里')} />
             </p>
             <p className="Gray_75">
               <span>
@@ -561,7 +697,7 @@ export default class UploadTemplateSheet extends React.Component {
             <p className="Gray_75">
               <span>
                 {_l(
-                  '7. 打印的二维码默认所有人可扫码查看，若需控制仅限应用内部成员查看，可将二维码字段代码设置为“#{二维码$[20*20]$_Private}”，用户扫码后需登录并且根据权限才能访问。',
+                  '7.可通过代码 #{[qrcode]字段名$[20*20]$} 或 #{[barcode]字段名$[40*10]$} 获取任意字段的二维码 或 条形码。二维码编码方式：QR-code，最大包含150个字（支持汉字）；条形码编码方式：code128，最大包含30个字符（仅支持数字、字母、符号）。',
                 )}
               </span>
             </p>
@@ -576,12 +712,13 @@ export default class UploadTemplateSheet extends React.Component {
               9. <span className="urlForTel">{_l('下载系统模板')}</span>
               <span>
                 {_l('作为参考范例、查看了解具体如何制作打印模板。')}
-                <Support type={3} href="https://help.mingdao.com/operation17.html" text={_l('帮助')} />
+                <Support type={3} href="https://help.mingdao.com/zh/operation17.html" text={_l('帮助')} />
               </span>
             </p>
           </div>
           <h5 className="mTop50 Font20 Gray">{_l('字段代码对照表')}</h5>
           {this.renderList()}
+          {this.renderApprovalList()}
         </div>
       </React.Fragment>
     );

@@ -46,7 +46,7 @@ class RelationList extends Component {
     this.props.reset();
   }
   handleSelect = (record, selected) => {
-    const { controlId, rowInfo, relationRow, actionParams, updateActionParams } = this.props;
+    const { controlId, rowInfo, relationRow, actionParams, updateActionParams, permissionInfo } = this.props;
     const { worksheet } = relationRow;
     const { isEdit, selectedRecordIds } = actionParams;
     const control = _.find(rowInfo.receiveControls, { controlId }) || {};
@@ -57,14 +57,16 @@ class RelationList extends Component {
           : selectedRecordIds.filter(id => id !== record.rowid),
       });
     } else {
-      this.setState({
-        previewRecordId: record.rowid
-      });
+      if (permissionInfo.allowLink) {
+        this.setState({
+          previewRecordId: record.rowid
+        });
+      }
     }
   };
   renderRow = item => {
     const { relationRow, actionParams } = this.props;
-    const { showControls, selectedRecordIds } = actionParams;
+    const { showControls, selectedRecordIds, coverCid } = actionParams;
     const { controls } = relationRow.template;
     const selected = !!_.find(selectedRecordIds, id => id === item.rowid);
     return (
@@ -73,6 +75,7 @@ class RelationList extends Component {
           from={3}
           selected={selected}
           controls={controls}
+          coverCid={coverCid}
           showControls={showControls}
           data={item}
           onClick={() => this.handleSelect(item, !selected)}

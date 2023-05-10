@@ -306,12 +306,16 @@ class RelationAction extends Component {
     );
   }
   renderContent() {
-    const { relationRows, permissionInfo } = this.props;
-    const { isCreate, isRelevance, hasEdit, onlyRelateByScanCode, activeRelateSheetControl } = permissionInfo;
-    const disabledManualWrite = onlyRelateByScanCode && _.get(activeRelateSheetControl, 'advancedSetting.dismanual') === '1';
+    const { relationRows, permissionInfo, relationRow } = this.props;
+    const { isCreate, isRelevance, allowRemoveRelation, onlyRelateByScanCode, activeRelateSheetControl } =
+      permissionInfo;
+    const disabledManualWrite =
+      onlyRelateByScanCode && _.get(activeRelateSheetControl, 'advancedSetting.dismanual') === '1';
+    const entityName = relationRow.worksheet.entityName || _l('关联');
+
     return (
       <Fragment>
-        {hasEdit && (
+        {allowRemoveRelation && (
           <WingBlank size="sm" className="flex">
             <Button
               disabled={!relationRows.length}
@@ -345,7 +349,7 @@ class RelationAction extends Component {
                 >
                   <Fragment>
                     <Icon icon="add" className="Font20" />
-                    {isRelevance ? _l('添加关联') : _l('新建关联')}
+                    {isRelevance ? _l(`添加${entityName}`) : _l(`新建${entityName}`)}
                   </Fragment>
                 </Button>
               </WingBlank>
@@ -359,9 +363,9 @@ class RelationAction extends Component {
     const { title } = this.state;
     const { actionParams, permissionInfo } = this.props;
     const { isEdit } = actionParams;
-    const { isRelevance, hasEdit } = permissionInfo;
+    const { isRelevance, hasEdit, allowRemoveRelation } = permissionInfo;
 
-    if (!isRelevance && !hasEdit) {
+    if (!isRelevance && !hasEdit && !allowRemoveRelation) {
       return null;
     }
 

@@ -26,7 +26,7 @@ export async function downloadAttachmentById({ fileId, refId }) {
     window.open(data.downloadUrl);
   } catch (err) {
     console.error(err);
-    alert(_l('下载附件失败', 3));
+    alert(_l('下载附件失败'), 3);
   }
 }
 
@@ -177,7 +177,7 @@ export function submitNewRecord(props) {
   } = props;
   const receiveControls = formdata
     .filter(item => item.type !== 30 && item.type !== 31 && item.type !== 32)
-    .map(formatControlToServer)
+    .map(c => formatControlToServer(c, { isNewRecord: true }))
     .filter(item => !checkCellIsEmpty(item.value));
   const args = {
     silent: true,
@@ -210,7 +210,7 @@ export function submitNewRecord(props) {
           onSubmitEnd();
           setRequesting(false);
         } else {
-          alert(_l('保存草稿失败'));
+          alert(_l('保存草稿失败'), 2);
         }
         return;
       }
@@ -299,6 +299,6 @@ export async function openControlAttachmentInNewTab({
     getType,
   });
   if (shareId) {
-    window.open(`${window.subPath ? window.subPath : ''}/recordfile/${shareId}/${getType}`);
+    window.open(`${window.subPath ? window.subPath : ''}/recordfile/${shareId}/${getType || ''}`);
   }
 }

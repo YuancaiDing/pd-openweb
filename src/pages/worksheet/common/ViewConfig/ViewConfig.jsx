@@ -7,7 +7,6 @@ import { Icon, Tooltip, ScrollView, Menu, MenuItem, CheckBlock, Radio, Dropdown 
 import withClickAway from 'ming-ui/decorators/withClickAway';
 import { VIEW_DISPLAY_TYPE, VIEW_TYPE_ICON } from 'src/pages/worksheet/constants/enum';
 import sheetAjax from 'src/api/worksheet';
-import SortColumns from 'src/pages/worksheet/components/SortColumns/';
 import { formatValuesOfOriginConditions } from '../../common/WorkSheetFilter/util';
 import { getIconByType } from 'src/pages/widgetConfig/util';
 import FilterConfig from '../../common/WorkSheetFilter/common/FilterConfig';
@@ -21,6 +20,7 @@ import GunterSet from './components/gunterSet/index';
 import FastFilter from './components/fastFilter';
 import NavGroup from './components/navGroup';
 import Show from './components/Show';
+import Controls from './components/Controls';
 import './ViewConfig.less';
 import { getAdvanceSetting } from 'src/util';
 import { permitList } from 'src/pages/FormSet/config.js';
@@ -31,24 +31,9 @@ import {
   NORMAL_SYSTEM_FIELDS_SORT,
   WORKFLOW_SYSTEM_FIELDS_SORT,
 } from 'src/pages/worksheet/common/ViewConfig/util';
-import { SYS, ALL_SYS } from 'src/pages/widgetConfig/config/widget.js';
+import { SYS, ALL_SYS, SYS_CONTROLS_WORKFLOW } from 'src/pages/widgetConfig/config/widget.js';
 import errorBoundary from 'ming-ui/decorators/errorBoundary';
 import _ from 'lodash';
-
-const SysSortColumn = styled.div`
-  .workSheetChangeColumn {
-    .searchBar,
-    .quickOperate {
-      display: none;
-    }
-  }
-  .showControlsColumnCheckItem {
-    &:hover {
-      background-color: initial;
-    }
-    padding: 0 0;
-  }
-`;
 const SwitchStyle = styled.div`
   .switchText {
     margin-right: 6px;
@@ -336,7 +321,7 @@ class ViewConfigCon extends Component {
 
   renderViewBtns() {
     const { viewSetting } = this.state;
-    const { btnData, view, columns } = this.props;
+    const { btnData, view, columns, currentSheetInfo } = this.props;
     const { filters = [], controls = [], moreSort = [], fastFilters = [], groupFilters } = view;
     const { icon, text } = VIEW_TYPE_ICON.find(it => it.id === VIEW_DISPLAY_TYPE[view.viewType]) || {};
     const viewTypeText = VIEW_DISPLAY_TYPE[view.viewType];
@@ -359,6 +344,15 @@ class ViewConfigCon extends Component {
     const getHtml = type => {
       let d = viewTypeConfig.find(o => o.type === type) || {};
       let da = (daConfig.find(o => o.type === type) || {}).data;
+      if (type === 'FastFilter') {
+        da = (da || []).filter(o => {
+          if (!isOpenPermit(permitList.sysControlSwitch, currentSheetInfo.switches || [])) {
+            return !SYS_CONTROLS_WORKFLOW.includes(o.controlId);
+          } else {
+            return true;
+          }
+        });
+      }
       return (
         <span>
           <span className="titleTxt">{d.name}</span>
@@ -389,11 +383,15 @@ class ViewConfigCon extends Component {
             <div className="viewBtnsLi">
               {it.list.map((o, n) => {
                 let item = viewTypeConfig.find(d => d.type === o);
+                //只有表格和画廊、看板视图、日历视图、甘特图有快速筛选
+                const hasFastFilter = ['sheet', 'gallery', 'board', 'calendar', 'gunter'].includes(viewTypeText);
+                const hasNavGroup = ['sheet', 'gallery'].includes(viewTypeText);
+                const hasCustomAction = ['sheet', 'gallery', 'board', 'calendar', 'gunter'].includes(viewTypeText);
                 if (
                   // 暂时不做颜色
                   item.type === 'Color' ||
-                  //只有表格和画廊有快速筛选
-                  (!['sheet', 'gallery'].includes(viewTypeText) && ['FastFilter', 'NavGroup'].includes(item.type)) ||
+                  (!hasFastFilter && ['FastFilter'].includes(item.type)) ||
+                  (!hasNavGroup && ['NavGroup'].includes(item.type)) ||
                   (!['sheet'].includes(viewTypeText) && o === 'Show') //只有表格有显示列
                 ) {
                   return '';
@@ -401,14 +399,15 @@ class ViewConfigCon extends Component {
                 return (
                   <React.Fragment>
                     {(item.type === 'MobileSet' ||
-                      (['sheet', 'gallery'].includes(viewTypeText) && ['FastFilter', 'NavGroup'].includes(item.type)) ||
-                      (!['sheet', 'gallery'].includes(viewTypeText) && item.type === 'CustomAction') ||
+                      (hasFastFilter && ['FastFilter'].includes(item.type)) ||
+                      (hasNavGroup && ['NavGroup'].includes(item.type)) ||
+                      (!hasCustomAction && item.type === 'CustomAction') ||
                       item.type === 'Filter') && (
                       <React.Fragment>
                         {item.type === 'Filter' ? (
                           <p className="titileP"> {_l('数据设置')}</p>
-                        ) : (['sheet', 'gallery'].includes(viewTypeText) && item.type === 'FastFilter') ||
-                          (!['sheet', 'gallery'].includes(viewTypeText) && item.type === 'CustomAction') ? (
+                        ) : (hasFastFilter && item.type === 'FastFilter') ||
+                          (!hasCustomAction && item.type === 'CustomAction') ? (
                           <p className="titileP">{_l('用户操作')}</p>
                         ) : (
                           ''
@@ -416,7 +415,7 @@ class ViewConfigCon extends Component {
                       </React.Fragment>
                     )}
                     <div
-                      className={cx('viewBtn', { active: viewSetting === item.type })}
+                      className={cx('viewBtn flexRow alignItemsCenter', { active: viewSetting === item.type })}
                       onClick={() => {
                         this.setState({ viewSetting: item.type });
                       }}
@@ -770,29 +769,6 @@ class ViewConfigCon extends Component {
     );
   };
 
-  renderControls = () => {
-    const { columns, view = {} } = this.props;
-    const { controls = [] } = view;
-    const viewcontrols = controls.filter(id => _.find(columns, column => column.controlId === id));
-    return (
-      <div className="commonConfigItem">
-        <div className="Gray_9e mTop8 mBottom4">{_l('设置此视图下的表单中需要对用户隐藏的字段')}</div>
-        <div className="ming Dropdown pointer w100 mBottom10 hideColumns">
-          <SortColumns
-            layout={2}
-            noShowCount={true}
-            noempty={false} //不需要至少显示一列
-            maxHeight={document.documentElement.clientHeight - 320}
-            dragable={false}
-            showControls={columns.filter(item => !viewcontrols.includes(item.controlId)).map(item => item.controlId)}
-            columns={this.formatColumnsListForControls(columns)}
-            onChange={this.columnChange}
-          />
-        </div>
-      </div>
-    );
-  };
-
   renderSort = () => {
     const { moreSort } = this.state;
     const { columns } = this.props;
@@ -892,7 +868,13 @@ class ViewConfigCon extends Component {
       case 'Sort': // 排序
         return this.renderSort();
       case 'Controls': // 字段
-        return this.renderControls();
+        return (
+          <Controls
+            {...this.props}
+            formatColumnsListForControls={this.formatColumnsListForControls}
+            columnChange={this.columnChange}
+          />
+        );
       case 'Color': // 颜色
       case 'MobileSet': // 移动端设置
         return (
@@ -988,7 +970,7 @@ class ViewConfigCon extends Component {
   };
 
   render() {
-    const { viewSetting } = this.state;
+    const { viewSetting, customdisplay } = this.state;
     const { view } = this.props;
     const { text } = VIEW_TYPE_ICON.find(it => it.id === VIEW_DISPLAY_TYPE[view.viewType]) || {};
     const data = viewTypeConfig.find((item, i) => item.type === viewSetting) || {};
@@ -998,7 +980,9 @@ class ViewConfigCon extends Component {
         <ScrollView className="viewContent flex">
           <div className="viewContentCon">
             {!['MobileSet', 'FastFilter', 'NavGroup'].includes(data.type) && (
-              <div className="viewSetTitle">{data.type === 'Setting' ? _l('%0设置', text) : data.name}</div>
+              <div className="viewSetTitle">
+                {data.type === 'Setting' ? _l('%0设置', text) : data.name}
+              </div>
             )}
             {this.renderSetting()}
           </div>

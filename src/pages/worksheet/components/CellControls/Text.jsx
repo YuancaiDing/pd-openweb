@@ -11,7 +11,7 @@ const ClickAwayable = createDecoratedComponent(withClickAway);
 import CellErrorTips from './comps/CellErrorTip';
 import EditableCellCon from '../EditableCellCon';
 import renderText from './renderText';
-import { isKeyBoardInputChar } from 'worksheet/util';
+import { emitter, isKeyBoardInputChar } from 'worksheet/util';
 import { FROM } from './enum';
 import { browserIsMobile, accMul } from 'src/util';
 import _ from 'lodash';
@@ -119,6 +119,14 @@ export default class Text extends React.Component {
       }
     }
   }
+
+  componentWillUnmount() {
+    const { isSubList, isediting } = this.props;
+    if (isSubList && isediting && !this.hadBlur) {
+      this.handleBlur();
+    }
+  }
+
   get isNumberPercent() {
     const { cell } = this.props;
     return _.includes([6, 31, 37], cell.type) && cell.advancedSetting && cell.advancedSetting.numshow === '1';
@@ -137,7 +145,7 @@ export default class Text extends React.Component {
     return this.controlCanMask && this.state.value && (isCharge || _.get(cell, 'advancedSetting.isdecrypt') === '1');
   }
 
-  get supportShiftEnter() {
+  get isMultipleLine() {
     const { cell } = this.props;
     return cell.type === 2 && cell.enumDefault === 1;
   }
@@ -165,6 +173,7 @@ export default class Text extends React.Component {
 
   @autobind
   handleBlur(target) {
+    this.hadBlur = true;
     const { cell, error, updateCell, updateEditingStatus } = this.props;
     let { oldValue = '' } = this.state;
     let { value = '' } = this.state;
@@ -206,7 +215,7 @@ export default class Text extends React.Component {
   handleChange(value) {
     const { cell, onValidate } = this.props;
     if (cell.type === 6 || cell.type === 8) {
-      value = replaceNotNumber(value);
+      value = replaceNotNumber(String(value));
     }
     onValidate(value);
     this.setState({
@@ -230,7 +239,12 @@ export default class Text extends React.Component {
     };
     if (e.key === 'v' && (e.ctrlKey || e.metaKey)) {
       if (window.tempCopyForSheetView) {
-        setKeyboardValue(window.tempCopyForSheetView);
+        const data = safeParse(window.tempCopyForSheetView);
+        if (data.type === 'text') {
+          setKeyboardValue(data.value);
+        } else {
+          setKeyboardValue(data.textValue);
+        }
       } else {
         navigator.clipboard.readText().then(setKeyboardValue);
       }
@@ -261,7 +275,7 @@ export default class Text extends React.Component {
 
   @autobind
   handleKeydown(e) {
-    const { cell, updateEditingStatus } = this.props;
+    const { tableId, cell, updateEditingStatus } = this.props;
     if (e.keyCode === 27) {
       updateEditingStatus(false);
       this.setState({
@@ -269,17 +283,27 @@ export default class Text extends React.Component {
       });
       e.preventDefault();
     } else if (e.keyCode === 13) {
-      if (this.supportShiftEnter && e.shiftKey) {
+      if (this.isMultipleLine && !(e.ctrlKey || e.metaKey)) {
         return;
+      } else {
+        e.preventDefault();
+        this.handleBlur();
       }
       e.preventDefault();
       this.handleBlur();
+      setTimeout(
+        () =>
+          emitter.emit('TRIGGER_TABLE_KEYDOWN_' + tableId, {
+            keyCode: 40,
+            stopPropagation: () => {},
+            preventDefault: () => {},
+          }),
+        100,
+      );
     } else if (_.includes(['ArrowUp', 'ArrowDown'], e.key) && _.includes([6, 8], cell.type)) {
       const num = Number(this.state.value);
       if (_.isNumber(num) && !_.isNaN(num)) {
-        this.setState({
-          value: num + (e.key === 'ArrowUp' ? 1 : -1),
-        });
+        this.handleChange(num + (e.key === 'ArrowUp' ? 1 : -1));
       }
       e.preventDefault();
     } else if (e.keyCode === 9) {
@@ -312,7 +336,8 @@ export default class Text extends React.Component {
     } = this.props;
     let { value, forceShowFullValue } = this.state;
     const isMobile = browserIsMobile();
-    const canedit =
+    const disabledInput = cell.advancedSetting.dismanual === '1';
+    let canedit =
       cell.type === 2 ||
       cell.type === 6 ||
       cell.type === 8 ||
@@ -320,6 +345,7 @@ export default class Text extends React.Component {
       cell.type === 7 ||
       cell.type === 3 ||
       cell.type === 4;
+    canedit = !disabledInput && canedit;
     const isediting = canedit && this.props.isediting;
     if (cell.type === 7) {
       value = (value || '').toUpperCase();
@@ -378,7 +404,7 @@ export default class Text extends React.Component {
         ) : (
           <Textarea
             className={cx('Ming textControlTextArea cellControlEdittingStatus stopPropagation', {
-              supportShiftEnter: this.supportShiftEnter,
+              isMultipleLine: this.isMultipleLine,
               cellControlErrorStatus: error,
             })}
             {...editProps}
@@ -393,7 +419,11 @@ export default class Text extends React.Component {
           />
         )}
         {error && <CellErrorTips pos={rowIndex === 0 ? 'bottom' : 'top'} error={error} />}
-        {this.supportShiftEnter && <MultipleLineTip>{_l('Shift+Enter 换行')}</MultipleLineTip>}
+        {this.isMultipleLine && (
+          <MultipleLineTip className="ellipsis">
+            {navigator.userAgent.indexOf('Mac OS') > 0 ? _l('⌘+Enter结束编辑') : _l('Ctrl+Enter结束编辑')}
+          </MultipleLineTip>
+        )}
       </ClickAwayable>
     );
     return (

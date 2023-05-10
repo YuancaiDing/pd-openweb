@@ -19,9 +19,11 @@ import { Dialog, Icon } from 'ming-ui';
 import { getAppFeaturesVisible } from 'src/util';
 import api from 'src/api/homeApp';
 import { getSuffix } from 'src/pages/PortalAccount/util';
+import GlobalSearch from 'src/pages/PageHeader/components/GlobalSearch/index';
 import privateGuide from 'src/api/privateGuide';
 import Trigger from 'rc-trigger';
-import weixinCode from 'src/pages/privateDeployment/images/weixin.png';
+import weixinCode from 'src/pages/NewPrivateDeployment/images/weixin.png';
+import { compatibleWorksheetRoute } from 'src/pages/Portal/util.js';
 import _ from 'lodash';
 
 @preall
@@ -94,11 +96,12 @@ export default class App extends Component {
       let url = `${pathname}${search}${hash}`;
       //外部门户 worksheet老地址兼容处理
       if (md.global.Account.isPortal && url.startsWith('/worksheet/')) {
-        that.compatibleWorksheetRoute(
+        compatibleWorksheetRoute(
           url
             .split(/\/worksheet\/(.*)/)
             .filter(o => o)[0]
             .split(/\/(.*)/)[0],
+          url.split(/\/row\/(.*)/).filter(o => o)[1],
         );
         return;
       }
@@ -130,19 +133,6 @@ export default class App extends Component {
     if (nextProps.location !== this.props.location) {
       this.setState({ prevPath: this.props.location });
     }
-  }
-
-  compatibleWorksheetRoute(worksheetId) {
-    //工作表老路由id补齐
-    api.getAppSimpleInfo({ workSheetId: worksheetId }).then(({ appId, appSectionId, workSheetId }) => {
-      if (appId && appSectionId) {
-        if (getSuffix(location.href) !== md.global.Account.addressSuffix) {
-          navigateTo(`/app/${appId}/${appSectionId}/${workSheetId}`, true);
-        } else {
-          navigateTo(`/${md.global.Account.addressSuffix}/${appSectionId}/${workSheetId}`, true);
-        }
-      }
-    });
   }
 
   parseUrl(url) {
@@ -186,8 +176,16 @@ export default class App extends Component {
           store.dispatch(actions.setShowAddressBook(true));
           break;
         case 102:
-          $('.commonUserHandleWrap .icon-search').click();
-          $('.globalSearch').focus();
+          let path = location.pathname.split('/');
+          GlobalSearch({
+            match: {
+              params: {
+                appId:
+                  location.pathname.startsWith('/app/') && path.length > 2 && path[2].length > 20 ? path[2] : undefined,
+              },
+            },
+            onClose: () => {},
+          });
           break;
         default:
           break;
@@ -200,6 +198,14 @@ export default class App extends Component {
       if (tag === 'input' || tag === 'textarea' || $(e.target).is('[contenteditable]')) return;
       callDialog(e.which);
     });
+
+    const isMacOs = navigator.userAgent.toLocaleLowerCase().includes('mac os');
+    $(document).on('keydown', function (e) {
+      if ((isMacOs ? e.metaKey : e.ctrlKey) && e.keyCode === 69) {
+        const fullEl = document.querySelector('.icon.fullRotate');
+        fullEl && fullEl.click();
+      }
+    });
   }
 
   /**
@@ -211,7 +217,7 @@ export default class App extends Component {
       : [];
     let isContain = false;
 
-    if (url.indexOf('hr') > -1 || url.indexOf('dossier') > -1) return true;
+    if (url.indexOf('hr') > -1 || url.indexOf('dossier') > -1 || url.indexOf('public') > -1) return true;
 
     clientOpenList.forEach(item => {
       if (url.indexOf(item) > -1) {
@@ -315,7 +321,6 @@ export default class App extends Component {
                 path="*"
                 render={({ location }) => {
                   if (
-                    location.pathname === '/form/edit' ||
                     /(\/upgrade\/choose|\/admin\/expansionservice|\/admin\/upgradeservice|\/upgrade\/upgrade|\/upgrade\/temp).*/.test(
                       location.pathname,
                     )

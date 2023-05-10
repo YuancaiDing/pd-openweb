@@ -79,7 +79,7 @@ export default class XAxis extends Component {
       isAlert && alert(_l('行政区域图仅支持地区字段可作为x轴维度'), 2);
       return false;
     }
-    if ([reportTypes.RadarChart, reportTypes.FunnelChart].includes(reportType) && isTimeControl(data.type)) {
+    if ([reportTypes.FunnelChart].includes(reportType) && isTimeControl(data.type)) {
       isAlert && alert(_l('时间类型不能作为x轴维度'), 2);
       return false;
     }
@@ -302,7 +302,7 @@ export default class XAxis extends Component {
             </Tooltip>
           )
         )}
-        <Dropdown overlay={this.renderOverlay(axis)} trigger={['click']} placement="bottomRight">
+        <Dropdown overlay={this.renderOverlay(axis || {})} trigger={['click']} placement="bottomRight">
           <Icon className="Gray_9e Font18 pointer" icon="arrow-down-border" />
         </Dropdown>
         <Icon className="Gray_9e Font18 pointer mLeft10" icon="close" onClick={this.props.removeXaxes} />

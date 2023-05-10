@@ -87,7 +87,7 @@ class PublicWorksheetConfigForm extends React.Component {
       hideControl,
       changeControls,
     } = this.props;
-    const { themeIndex, coverUrl, logoUrl, submitBtnName } = worksheetInfo;
+    const { themeIndex, coverUrl, logoUrl, submitBtnName, advancedSetting } = worksheetInfo;
     const { appearanceConfigVisible, isEditing } = this.state;
     const disabledControlIds = getDisabledControls(originalControls, worksheetSettings);
     const needHidedControlIds = hidedControlIds.concat(disabledControlIds);
@@ -131,6 +131,7 @@ class PublicWorksheetConfigForm extends React.Component {
                   </div>
                   <div className="worksheetName">
                     <EditableText
+                      turnLine
                       mutiLine
                       minHeight={38}
                       emptyTip={_l('未命名表单')}
@@ -163,6 +164,7 @@ class PublicWorksheetConfigForm extends React.Component {
                 )}
                 {!loading && (
                   <FormPreview
+                    advancedSetting={advancedSetting}
                     controls={overridePos(originalControls, controls).filter(
                       c => !_.find(needHidedControlIds, hcid => c.controlId === hcid),
                     )}

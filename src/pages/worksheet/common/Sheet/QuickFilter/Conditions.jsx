@@ -92,9 +92,11 @@ const Operate = styled.div`
 
 const ExpandBtn = styled.div(
   ({ showQueryBtn }) => `
-  position: absolute;
-  top: 6px;
-  right: -${showQueryBtn ? 64 : 43}px;
+  // position: absolute;
+  // top: 6px;
+  // right: -${showQueryBtn ? 64 : 43}px;
+  display: inline-block;
+  margin-left: 20px;
   cursor: pointer;
   color: #2196f3;
   font-size: 13px;
@@ -192,10 +194,17 @@ export default function Conditions(props) {
       .filter(validate)
       .map(conditionAdapter);
     if (quickFilter.length) {
-      const formattedFilter = quickFilter.map(c => ({
-        ...c,
-        values: formatFilterValuesToServer(c.dataType, c.values),
-      }));
+      const formattedFilter = quickFilter.map(c => {
+        let values = formatFilterValuesToServer(c.dataType, c.values);
+        if (values[0] === 'isEmpty') {
+          c.filterType = 7;
+          values = [];
+        }
+        return {
+          ...c,
+          values,
+        };
+      });
       if (_.includes(TextTypes.concat(NumberTypes), store.current.activeType)) {
         debounceUpdateQuickFilter.current(formattedFilter, view);
       } else {
@@ -220,9 +229,10 @@ export default function Conditions(props) {
       update();
     }
   }, []);
+  const visibleItems = items.slice(0, _.isNumber(hideStartIndex) ? hideStartIndex : undefined);
   return (
     <Con className={className} isConfigMode={isConfigMode} style={items.length ? { marginTop: 8 } : {}}>
-      {items.slice(0, _.isNumber(hideStartIndex) ? hideStartIndex : undefined).map((item, i) => (
+      {visibleItems.map((item, i) => (
         <Item
           isConfigMode={isConfigMode}
           isLastLine={
@@ -274,7 +284,7 @@ export default function Conditions(props) {
           </Content>
         </Item>
       ))}
-      {(showQueryBtn || showExpand) && (
+      {(showQueryBtn || showExpand) && !!visibleItems.length && (
         <Operate
           className={cx('buttons', operateIsNewLine ? 'operateIsNewLine' : '')}
           isConfigMode={isConfigMode}

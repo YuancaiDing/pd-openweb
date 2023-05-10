@@ -39,6 +39,15 @@ const PivotTableContent = styled.div`
       text-overflow: ellipsis;
     }
   }
+  &.safariScroll {
+    .ant-table-header table {
+      padding-right: 10px;
+      border-top: none !important;
+    }
+    thead tr:first-child th {
+      border-top: 1px solid #f0f0f0;
+    }
+  }
   &.cell-left .cell-content {
     text-align: left;
   }
@@ -116,7 +125,7 @@ const PivotTableContent = styled.div`
     }
   }
   th, td {
-    min-width: 100px;
+    min-width: ${props => props.isMobile ? '60px' : '100px'};
   }
   .ant-table-cell-scrollbar {
     display: none;

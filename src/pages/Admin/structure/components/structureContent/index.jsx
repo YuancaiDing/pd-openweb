@@ -4,11 +4,9 @@ import { bindActionCreators } from 'redux';
 import { LoadDiv, Checkbox, Icon } from 'ming-ui';
 import * as entitiesActions from '../../actions/entities';
 import * as currentActions from '../../actions/current';
-import dialogInviteUser from '../../modules/dialogInviteUser';
 import DialogBatchEdit from '../../modules/dialogBatchEdit';
 import UserTable from '../userList/userTable';
 import RoleController from 'src/api/role';
-import { encrypt } from 'src/util';
 import cx from 'classnames';
 import { Pagination, Drawer } from 'antd';
 import addFriends from 'src/components/addFriends/addFriends';
@@ -219,6 +217,9 @@ class StructureContent extends Component {
               this.setState({ openChangeUserInfoDrawer: false });
             }}
             getData={this.props.fetchApproval}
+            cancelInviteRemove={() => this.props.loadInactiveUsers(projectId, pageIndex)}
+            departmentId={departmentId}
+            refreshData={this.loadData}
           />
         )}
       </Fragment>

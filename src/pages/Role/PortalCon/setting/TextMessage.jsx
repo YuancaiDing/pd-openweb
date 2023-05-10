@@ -6,8 +6,15 @@ import { getStringBytes } from 'src/util';
 import { Icon } from 'ming-ui';
 import MailSettingsDialog from 'src/pages/Role/PortalCon/components/MailSettingsDialog';
 import SMSSettingsDialog from 'src/pages/Role/PortalCon/components/SMSSettingsDialog';
+import { getCurrentProject } from 'src/util';
 
 const Wrap = styled.div`
+  .warnTxt {
+    background: #fdf9dc;
+    border-radius: 3px;
+    padding: 12px;
+    margin-bottom: 24px;
+  }
   position: relative;
   height: calc(100% - 100px);
   overflow: hidden;
@@ -72,7 +79,8 @@ const Wrap = styled.div`
 
 let preSign = '';
 export default function TextMessage(props) {
-  let { portalSet = {}, onChangePortalSet } = props;
+  let { projectId, onChangePortalSet } = props;
+  const hasWarn = getCurrentProject(projectId).licenseType !== 1; //非付费版需要提示
   const [sign, setSign] = useState(''); //签名
   const [emailSignature, setEmailSignature] = useState('');
   const [portalSetModel, setPortalSetModel] = useState({});
@@ -91,6 +99,13 @@ export default function TextMessage(props) {
   return (
     <Wrap>
       <div className="content">
+        {!md.global.Config.IsLocal && hasWarn && (
+          <div className="warnTxt">
+            {_l(
+              '因为平台安全措施需要，自定义的短信签名和通知内容暂时只对付费组织生效。免费和试用组织只能按默认内容发送',
+            )}
+          </div>
+        )}
         <h6 className="Font16 Gray Bold mBottom0">{_l('短信通知')}</h6>
         <div className="mTop6 Gray_9e">
           {_l(
@@ -120,10 +135,10 @@ export default function TextMessage(props) {
                   smsSignature: preSign,
                 },
               });
-              return alert(_l('请输入签名'));
+              return alert(_l('请输入签名'), 3);
             }
             if (!/^[\u4E00-\u9FA5A-Za-z]+$/.test(e.target.value)) {
-              return alert(_l('只支持中英文'));
+              return alert(_l('只支持中英文'), 3);
             }
             if (getStringBytes(e.target.value) > 16) {
               setSign(getStrBytesLength(e.target.value));
@@ -133,7 +148,7 @@ export default function TextMessage(props) {
                   smsSignature: getStrBytesLength(e.target.value),
                 },
               });
-              return alert(_l('最多只能16个字节'));
+              return alert(_l('最多只能16个字节'), 3);
             }
           }}
           onChange={e => {
@@ -184,7 +199,7 @@ export default function TextMessage(props) {
                   emailSignature: preSign,
                 },
               });
-              return alert(_l('请输入发件人名称'));
+              return alert(_l('请输入发件人名称'), 3);
             }
             onChangePortalSet({
               portalSetModel: {

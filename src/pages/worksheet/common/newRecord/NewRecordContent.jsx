@@ -25,6 +25,7 @@ import { browserIsMobile } from 'src/util';
 import './NewRecord.less';
 import { BUTTON_ACTION_TYPE } from './NewRecord';
 import _ from 'lodash';
+import { canEditData } from 'worksheet/redux/actions/util';
 
 const Con = styled.div`
   height: 100%;
@@ -59,6 +60,7 @@ function NewRecordForm(props) {
     from,
     isCustomButton,
     isCharge,
+    appPkgData,
     notDialog,
     appId,
     viewId,
@@ -190,9 +192,6 @@ function NewRecordForm(props) {
             });
             return;
           }
-          if (_.isFunction(onAdd)) {
-            onAdd([]);
-          }
           onCancel();
         },
         onSubmitEnd: () => {
@@ -234,7 +233,9 @@ function NewRecordForm(props) {
             getSubListError(
               {
                 ...control.value,
-                rules: _.get(cellObjs.current || {}, `${control.controlId}.cell.worksheettable.current.table.rules`),
+                rules:
+                  _.get(cellObjs.current || {}, `${control.controlId}.cell.worksheettable.current.table.rules`) ||
+                  _.get(cellObjs.current || {}, `${control.controlId}.cell.props.rules`),
               },
               _.get(cellObjs.current, `${control.controlId}.cell.state.controls`) || control.relationControls,
               control.showControls,
@@ -407,9 +408,10 @@ function NewRecordForm(props) {
           <Share
             title={_l('新建记录链接')}
             from="newRecord"
+            canEditForm={isCharge}//仅 管理员|开发者 可设置公开表单
             isPublic={visibleType === 2}
             publicUrl={publicShareUrl}
-            isCharge={isCharge}
+            isCharge={isCharge || canEditData(appPkgData.appRoleType)}//运营者具体分享权限
             params={{
               appId,
               viewId,
@@ -446,6 +448,7 @@ function NewRecordForm(props) {
               isCharge,
               allowEdit: true,
             }}
+            widgetStyle={worksheetInfo.advancedSetting}
             masterRecordRowId={masterRecordRowId || (masterRecord || {}).rowId}
             registerCell={({ item, cell }) => (cellObjs.current[item.controlId] = { item, cell })}
             mountRef={ref => (customwidget.current = ref.current)}

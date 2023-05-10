@@ -12,6 +12,7 @@ import _ from 'lodash';
 
 const isMobile = browserIsMobile();
 const isPrintPivotTable = location.href.includes('printPivotTable');
+const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
 
 @errorBoundary
 export default class extends Component {
@@ -116,8 +117,8 @@ export default class extends Component {
         const parentWidth = parent.clientWidth - 2;
         const configKeys = Object.keys(config);
         const occupyWidth = configKeys.map(key => config[key]).reduce((count, item) => item + count, 0);
-        const columnCount = (data.data.length + 1) - configKeys.length;
-        const width = (parentWidth - occupyWidth) / columnCount;
+        const columnCount = (data.data.length + 1);
+        const width = parentWidth / columnCount;
         return width < 80 ? 80 : width;
       } else {
         return pivotTableUnilineShow ? 130 : undefined;
@@ -173,25 +174,31 @@ export default class extends Component {
       const { controlType, fields = [] } = control;
       const showControl = controlType === 29 && !_.isEmpty(fields);
       const data = item.data;
+      const columnWidth = this.getColumnWidth(index);
+      const maxFilesWidth = showControl && this.getAllMaxFilesWidth(data, fields);
+      const diffWidth = _.isUndefined(columnWidth) ? 0 : columnWidth - maxFilesWidth;
       return {
         title: () => {
           if (showControl) {
             return (
-              <div className="flexRow valignWrapper">
-                {
-                  fields.map((item, index) => (
-                    <div
-                      key={item.controlId}
-                      className={cx(item.controlType === 14 ? 'fileContent' : 'otherContent')}
-                      style={{
-                        width: item.controlType === 14 ? this.getMaxFileLength(data, index) * _.find(relevanceImageSize, { value: item.size }).px : null
-                      }}
-                    >
-                      {item.controlName}
-                    </div>
-                  ))
-                }
-              </div>
+              <Fragment>
+                <div className="flexRow valignWrapper">
+                  {
+                    fields.map((item, index) => (
+                      <div
+                        key={item.controlId}
+                        className={cx(item.controlType === 14 ? 'fileContent' : 'otherContent')}
+                        style={{
+                          width: item.controlType === 14 ? (this.getMaxFileLength(data, index) * _.find(relevanceImageSize, { value: item.size }).px) + (diffWidth / fields.length) : null
+                        }}
+                      >
+                        {item.controlName}
+                      </div>
+                    ))
+                  }
+                </div>
+                {this.renderDrag(index)}
+              </Fragment>
             );
           }
           return (
@@ -204,10 +211,10 @@ export default class extends Component {
         dataIndex: item.key,
         ellipsis: pivotTableUnilineShow,
         fixed: (isMobile ? mobilePivotTableLineFreeze : pivotTableLineFreeze) ? 'left' : null,
-        width: showControl ? this.getAllMaxFilesWidth(data, fields) : this.getColumnWidth(index),
+        width: showControl ? columnWidth || maxFilesWidth : columnWidth,
         className: 'line-content',
         render: (...args) => {
-          return this.renderLineTd(...args, control);
+          return this.renderLineTd(...args, control, diffWidth / fields.length);
         }
       }
     });
@@ -302,7 +309,7 @@ export default class extends Component {
             return (
               <Fragment>
                 {title}
-                {this.renderDrag(index + 1)}
+                {this.renderDrag(startIndex + 1)}
               </Fragment>
             );
           } : title,
@@ -437,7 +444,7 @@ export default class extends Component {
       });
       result.forEach((item, i) => {
         const value = item.data[index];
-        obj[`${item.t_id}-${i}`] = value || '--';
+        obj[`${item.t_id}-${i}`] = value;
       });
       return obj;
     });
@@ -460,7 +467,7 @@ export default class extends Component {
     });
 
     result.forEach((item, i) => {
-      const value = _.isNumber(item.sum) ? formatrChartValue(item.sum, false, yaxisList, item.t_id, false) : '';
+      const value = _.isNumber(item.sum) ? formatrChartValue(item.sum, false, yaxisList, item.t_id) : '';
       const sumData = _.find(lineSummary.controlList, { controlId: item.t_id }) || {};
       summary[`${item.t_id}-${i}`] = value ? (sumData.name && !item.summary_col ? `${sumData.name} ${value}` : value) : '';
     });
@@ -495,7 +502,7 @@ export default class extends Component {
     }
     if (columnFreeze && parent) {
       const lineHeight = 39;
-      const columnsLength = columns.length + (yaxisList.length === 1 ? 0 : 1);
+      const columnsLength = (columns.length || 1) + (yaxisList.length === 1 ? 0 : 1);
       const headerHeight = columnsLength * lineHeight;
       if (!lineFreeze) {
         config.x = '100%';
@@ -555,7 +562,7 @@ export default class extends Component {
       );
     }
   }
-  renderRelevanceContent(relevanceData, parentControl, index) {
+  renderRelevanceContent(relevanceData, parentControl, index, diffWidth) {
     const { fields } = parentControl;
     const control = fields[index];
     const { style } = this.props.reportData;
@@ -567,13 +574,13 @@ export default class extends Component {
       const max = this.getMaxFileLength(data, index);
       const handleFilePreview = this.handleFilePreview.bind(this, relevanceData);
       return (
-        <div className="relevanceContent fileContent" style={{ width: max * px }} key={control.controlId}>
+        <div className="relevanceContent fileContent" style={{ width: (max * px) + diffWidth }} key={control.controlId}>
           {relevanceData.length ? (
             relevanceData.map(file => (
               this.renderFile(file, px, fileIconSize, handleFilePreview)
             ))
           ) : (
-            <div style={{ width: px }}>{'--'}</div>
+            <div style={{ width: px + diffWidth }}>{'--'}</div>
           )}
         </div>
       )
@@ -591,7 +598,7 @@ export default class extends Component {
       </div>
     );
   }
-  renderLineTd(data, row, index, control) {
+  renderLineTd(data, row, index, control, diffWidth) {
     const { style } = this.props.reportData;
     const { pivotTableUnilineShow, pivotTableLineFreeze } = style ? style : {};
     const { controlType, fields } = control;
@@ -619,7 +626,7 @@ export default class extends Component {
             <div className="flexRow w100">
               {
                 res.map((item, index) => (
-                  this.renderRelevanceContent(item, control, index)
+                  this.renderRelevanceContent(item, control, index, diffWidth)
                 ))
               }
             </div>
@@ -640,7 +647,7 @@ export default class extends Component {
         <div className="flexRow w100">
           {
             res.map((item, index) => (
-              this.renderRelevanceContent(item, control, index)
+              this.renderRelevanceContent(item, control, index, diffWidth)
             ))
           }
         </div>
@@ -677,6 +684,7 @@ export default class extends Component {
     return (
       <PivotTableContent
         ref={this.$ref}
+        isMobile={isMobile}
         pivotTableStyle={pivotTableStyle}
         isFreeze={columnFreeze || lineFreeze}
         className={
@@ -686,7 +694,8 @@ export default class extends Component {
             contentAutoHeight: scrollConfig.x && _.isUndefined(scrollConfig.y),
             contentScroll: scrollConfig.y,
             hideHeaderLastTr: columns.length && yaxisList.length === 1,
-            noSelect: dragValue
+            noSelect: dragValue,
+            safariScroll: isSafari && scrollConfig.y
           })
         }
       >

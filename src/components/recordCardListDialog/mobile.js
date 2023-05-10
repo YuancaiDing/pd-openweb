@@ -67,7 +67,11 @@ export default class RecordCardListDialog extends Component {
     this.lazyLoadRecorcd = _.debounce(this.loadRecorcd, 500);
   }
   componentDidMount() {
-    const { control, keyWords } = this.props;
+    const { control, keyWords, staticRecords = [] } = this.props;
+    if (!_.isEmpty(staticRecords)) {
+      this.setState({ list: staticRecords, loading: false });
+      return;
+    }
     if (control) {
       (window.isPublicWorksheet ? publicWorksheetAjax : sheetAjax)
         .getWorksheetInfo({ worksheetId: control.dataSource, getTemplate: true })
@@ -245,9 +249,13 @@ export default class RecordCardListDialog extends Component {
   }
   @autobind
   handleSelect(record, selected) {
-    const { multiple, onOk, onClose } = this.props;
+    const { multiple, onOk, onClose, maxCount, selectedCount } = this.props;
     const { selectedRecords } = this.state;
+
     if (multiple) {
+      if (selectedCount + selectedRecords.length >= maxCount) {
+        return alert(_l('最多关联%0条', maxCount), 3);
+      }
       this.setState({
         selectedRecords: selected
           ? _.uniqBy(selectedRecords.concat(record))
@@ -303,7 +311,8 @@ export default class RecordCardListDialog extends Component {
     return sortedControl && sortedControl.isAsc;
   }
   get cardControls() {
-    const { showControls } = this.props;
+    const { control = {} } = this.props;
+    const showControls = control.showControls || this.props.showControls;
     const { controls } = this.state;
     const titleControl = _.find(controls, c => c.attribute === 1);
     const allControls = [
@@ -385,9 +394,10 @@ export default class RecordCardListDialog extends Component {
       allowNewRecord,
       disabledManualWrite,
       showControls,
-      coverCid,
       onOk,
       onClose,
+      control,
+      staticRecords = [],
     } = this.props;
     const {
       loading,
@@ -401,6 +411,7 @@ export default class RecordCardListDialog extends Component {
       worksheetInfo,
       showNewRecord,
     } = this.state;
+    const { advancedSetting = {} } = worksheetInfo || {};
     const { cardControls } = this;
     const formData = this.props.formData.filter(_.identity);
     const titleControl = formData.filter(c => c && c.attribute === 1);
@@ -414,6 +425,7 @@ export default class RecordCardListDialog extends Component {
         rowid: recordId,
       }),
     };
+    const coverCid = this.props.coverCid || (control && control.coverCid);
     return (
       <ScrollView
         className="recordCardList mTop10 flex"
@@ -452,6 +464,8 @@ export default class RecordCardListDialog extends Component {
             value: defaultRelatedSheetValue,
           }}
           visible={showNewRecord}
+          showDraftsEntry={true}
+          sheetSwitchPermit={control.sheetSwitchPermit}
           hideNewRecord={() => {
             this.setState({ showNewRecord: false });
           }}
@@ -473,13 +487,23 @@ export default class RecordCardListDialog extends Component {
         />
         {list.length
           ? list.map((record, i) => {
+              if (!_.isEmpty(staticRecords)) {
+                return (
+                  <div
+                    className="worksheetRecordCard mobile noControls withoutCover"
+                    onClick={() => this.handleSelect(record, !selected)}
+                  >
+                    <p className="titleText ellipsis">{record.name}</p>
+                  </div>
+                );
+              }
               const selected = !!_.find(selectedRecords, r => r.rowid === record.rowid);
               return (
                 <WingBlank key={i} size="md">
                   <RecordCard
                     from={3}
                     coverCid={coverCid}
-                    showControls={showControls}
+                    showControls={cardControls.map(c => c.controlId)}
                     controls={controls}
                     data={record}
                     selected={selected}

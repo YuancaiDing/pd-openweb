@@ -1,4 +1,4 @@
-import { formatFormulaDate, regexFilterHtmlScript, getSelectedOptions } from '../../util';
+import { formatFormulaDate, domFilterHtmlScript, getSelectedOptions } from '../../util';
 import { RELATION_TYPE_NAME } from './enum';
 import { accMul, toFixed } from 'src/util';
 import { getSwitchItemNames } from 'src/pages/widgetConfig/util';
@@ -104,7 +104,7 @@ export default function renderText(cell, options = {}) {
           value = '';
         }
         const showFormat = getShowFormat(cell);
-        value = moment(cell.value).format(
+        value = moment(moment(cell.value), showFormat).format(
           _.includes(['ctime', 'utime', 'dtime'], cell.controlId) ? 'YYYY-MM-DD HH:mm:ss' : showFormat,
         );
         break;
@@ -119,9 +119,10 @@ export default function renderText(cell, options = {}) {
           value = '';
         }
         if (cell.enumDefault === 2) {
-          value = moment(cell.value).format(cell.unit === '3' ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm');
+          const showFormat = getShowFormat({ advancedSetting: { ...advancedSetting, showtype: cell.unit || '1' } });
+          value = moment(cell.value, value.indexOf('-') > -1 ? undefined : showFormat).format(showFormat);
         } else {
-          if (_.includes(['1', '2'], unit)) {
+          if (_.includes(['1', '2', '6'], unit)) {
             if (cell.advancedSetting.autocarry === '1' || cell.enumDefault === 1) {
               value = formatFormulaDate({ value: cell.value, unit, dot: cell.dot });
             } else {
@@ -130,13 +131,15 @@ export default function renderText(cell, options = {}) {
                 {
                   1: _l('分钟'),
                   2: _l('小时'),
+                  6: _l('秒'),
                 }[unit];
             }
+          } else {
+            value =
+              (suffix ? '' : prefix) +
+              formatFormulaDate({ value: cell.value, unit, hideUnitStr: true, dot: cell.dot }) +
+              suffix;
           }
-          value =
-            (suffix ? '' : prefix) +
-            formatFormulaDate({ value: cell.value, unit, hideUnitStr: suffix || prefix, dot: cell.dot }) +
-            suffix;
         }
         break;
       case 17: // DATE_TIME_RANGE 时间段
@@ -155,7 +158,7 @@ export default function renderText(cell, options = {}) {
         break;
       case 10010: // REMARK 备注
       case 41: // RICH_TEXT 富文本
-        value = regexFilterHtmlScript(cell.value);
+        value = domFilterHtmlScript(cell.value);
         break;
       case 40: // LOCATION 定位
         try {
@@ -315,7 +318,8 @@ export default function renderText(cell, options = {}) {
     if (
       !options.noMask &&
       ((type === 2 && cell.enumDefault === 2) || _.includes([3, 5, 7], type)) &&
-      _.get(cell, 'advancedSetting.datamask') === '1'
+      _.get(cell, 'advancedSetting.datamask') === '1' &&
+      !window.shareState.shareId
     ) {
       return dealMaskValue({ ...cell, value }) || value;
     }

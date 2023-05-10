@@ -18,7 +18,7 @@ const DeleteBothWayRelateWrap = styled.div`
 const OperationWrap = styled.div`
   position: absolute;
   right: 12px;
-  top: -4px;
+  top: -6px;
   z-index: 2;
 
   .operationWrap {
@@ -176,7 +176,7 @@ export default function WidgetOperation(props) {
         visible={deleteConfirmVisible}
         onVisibleChange={visible => setVisible({ deleteConfirmVisible: visible })}
         // getPopupContainer={() => parentRef.current}
-        hint={isFree ? _l('删除后可在字段回收站保留60天（免费版删除后无法恢复）') : _l('删除后可在字段回收站保留60天')}
+        hint={isFree ? _l('删除后可在字段回收站保留%0天（免费版删除后无法恢复）', md.global.SysSettings.worksheetRowRecycleDays) : _l('删除后可在字段回收站保留%0天', md.global.SysSettings.worksheetRowRecycleDays)}
         onCancel={() => setVisible({ deleteConfirmVisible: false })}
         onOk={handleDelete}
       >
@@ -211,7 +211,7 @@ export default function WidgetOperation(props) {
           </Tooltip>
         )}
         {!includes([34], type) && (
-          <Tooltip placement="bottom" trigger={['hover']} title={_l('复制控件')}>
+          <Tooltip placement="bottom" trigger={['hover']} title={_l('复制')}>
             <div
               className="copyControl operationIconWrap"
               onClick={e => {

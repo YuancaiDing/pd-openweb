@@ -82,12 +82,14 @@ function click(func) {
 export default function RecordCoverCard(props) {
   const {
     disabled,
+    style = {},
     width,
     controls,
     data,
     cover,
     onClick,
     onDelete,
+    projectId,
     viewId,
     allowlink,
     sourceEntityName,
@@ -110,7 +112,7 @@ export default function RecordCoverCard(props) {
   return (
     <Con
       onClick={onClick}
-      style={width ? { width } : {}}
+      style={{ ...style, ...(width ? { width } : {}) }}
       className={!disabled && allowlink !== '0' && 'Hand'}
       canView={allowlink !== '0'}
     >
@@ -137,7 +139,14 @@ export default function RecordCoverCard(props) {
             ></i>
           )}
         </Title>
-        <CardCellControls width={width} controls={controls} data={data} viewId={viewId} isCharge={isCharge} />
+        <CardCellControls
+          width={width}
+          controls={controls}
+          data={data}
+          projectId={projectId}
+          viewId={viewId}
+          isCharge={isCharge}
+        />
       </ControlCon>
       {cover && !!controls.length && (
         <img

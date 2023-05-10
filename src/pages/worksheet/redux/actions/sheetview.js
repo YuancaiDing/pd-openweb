@@ -5,7 +5,12 @@ import {
   WORKFLOW_SYSTEM_CONTROL,
   WIDGETS_TO_API_TYPE_ENUM,
 } from 'src/pages/widgetConfig/config/widget';
-import { getLRUWorksheetConfig, saveLRUWorksheetConfig, clearLRUWorksheetConfig } from 'worksheet/util';
+import {
+  getLRUWorksheetConfig,
+  saveLRUWorksheetConfig,
+  clearLRUWorksheetConfig,
+  formatQuickFilter,
+} from 'worksheet/util';
 import { getNavGroupCount } from './index';
 
 export const fetchRows = ({ isFirst, changeView, noLoading, noClearSelected, updateWorksheetControls } = {}) => {
@@ -28,19 +33,7 @@ export const fetchRows = ({ isFirst, changeView, noLoading, noClearSelected, upd
       sortControls,
       notGetTotal: true,
       ...filters,
-      fastFilters: quickFilter.map(f =>
-        _.pick(f, [
-          'controlId',
-          'dataType',
-          'spliceType',
-          'filterType',
-          'dateRange',
-          'value',
-          'values',
-          'minValue',
-          'maxValue',
-        ]),
-      ),
+      fastFilters: formatQuickFilter(quickFilter),
       navGroupFilters,
       isGetWorksheet: updateWorksheetControls,
       ...(showAsSheetView ? { getType: 0 } : {}),
@@ -292,7 +285,6 @@ export const setHighLightOfRows = (rowIds, tableId) => {
       if (_.isUndefined(rowIndex)) {
         return;
       }
-      rowIndex = rowIndex + 1;
       $(`${tableId ? `.sheetViewTable.id-${tableId}-id` : '.sheetViewTable'} .cell.row-${rowIndex}`).addClass(
         'highlight',
       );
@@ -376,8 +368,11 @@ export function saveSheetLayout({ closePopup = () => {} }) {
       } else {
         updates.advancedSetting = { ...view.advancedSetting, customdisplay: '1' };
         updates.showControls = controls
+          .filter(
+            c =>
+              /^\w{24}$/.test(c.controlId) || _.includes(safeParse(view.advancedSetting.sysids, 'array'), c.controlId),
+          )
           .sort((a, b) => (a.row * 10 + a.col > b.row * 10 + b.col ? 1 : -1))
-          .concat(SYSTEM_CONTROL)
           .filter(c => !_.find(sheetHiddenColumns, hcid => hcid === c.controlId))
           .map(c => c.controlId);
       }
@@ -616,7 +611,7 @@ export function addRecord(records, afterRowId) {
       const afterRowIndex = _.findIndex(rows, row => row.rowid === afterRowId);
       const newRows = _.isUndefined(afterRowId)
         ? [...records, ...rows]
-        : [...rows.slice(0, afterRowIndex + 1), ...records, ...rows.slice(afterRowIndex + records.length)];
+        : [...rows.slice(0, afterRowIndex + 1), ...records, ...rows.slice(afterRowIndex + 1)];
       dispatch({
         type: 'WORKSHEET_SHEETVIEW_UPDATE_ROWS',
         rows: newRows,

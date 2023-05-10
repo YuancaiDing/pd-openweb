@@ -5,27 +5,40 @@ import { bindActionCreators } from 'redux';
 import * as actions from 'src/pages/Role/AppRoleCon/redux/actions';
 import { WrapCon, WrapHeader, WrapContext } from 'src/pages/Role/style';
 import AppAjax from 'src/api/appManagement';
-import { ROLE_TYPES, ROLE_CONFIG } from 'src/pages/Role/config';
+import { ROLE_CONFIG, USER_EXTEND_INFO_FEATURE_ID } from 'src/pages/Role/config';
 import UserCon from './UserCon';
 import RoleCon from './RoleCon';
 import { Checkbox, Tooltip } from 'ming-ui';
 import DropOption from 'src/pages/Role/PortalCon/components/DropOption';
 import LoadDiv from 'ming-ui/components/LoadDiv';
 import _ from 'lodash';
+import OthersCon from './OthersCon';
+import { navigateTo } from 'src/router/navigateTo';
+import { getFeatureStatus } from 'src/util';
 
 const conList = [
   {
     url: '/',
     key: 'user',
-    txt: _l('用户'),
+    txt: _l('管理用户'),
   },
-  { url: '/roleSet', key: 'roleSet', txt: _l('角色权限') },
-  // {
-  //   url: '/others',
-  //   key: 'others',
-  //   txt: _l('用户扩展信息'),
-  // },
+  { url: '/roleSet', key: 'roleSet', txt: _l('编辑角色权限') },
 ];
+
+const getTabList = () => {
+  const currentProjectId =
+    localStorage.getItem('currentProjectId') || ((_.get(md, 'global.Account.projects') || [])[0] || {}).projectId;
+  const FEATURE_STATUS = getFeatureStatus(currentProjectId, USER_EXTEND_INFO_FEATURE_ID);
+  if (FEATURE_STATUS) {
+    return conList.concat({
+      url: '/others',
+      key: 'others',
+      txt: _l('用户扩展信息'),
+    });
+  }
+  return conList;
+};
+
 class Con extends React.Component {
   constructor(props) {
     super(props);
@@ -43,11 +56,11 @@ class Con extends React.Component {
         params: { appId },
       },
     } = this.props;
-    const { isAdmin, getRoleSummary, fetchAllNavCount, setSelectedIds } = this.props;
+    const { isAdmin, fetchAllNavCount, setSelectedIds, canEditUser, canEditApp } = this.props;
     setSelectedIds([]);
-    isAdmin && this.getSet();
+    (canEditUser || canEditApp) && this.getSet();
     fetchAllNavCount({
-      isAdmin,
+      canEditUser,
       appId,
     });
     if (!isAdmin) {
@@ -71,7 +84,6 @@ class Con extends React.Component {
         params: { appId },
       },
     } = this.props;
-
     AppAjax.getAppRoleSetting({ appId }).then(data => {
       this.setState({ rolesVisibleConfig: String(data.appSettingsEnum), notify: data.notify });
     });
@@ -108,6 +120,8 @@ class Con extends React.Component {
     switch (tab) {
       case 'roleSet':
         return <RoleCon {...this.props} tab={tab} />;
+      case 'others':
+        return <OthersCon {...this.props} tab={tab} />;
       default:
         return <UserCon {...this.props} tab={tab} />;
     }
@@ -122,8 +136,8 @@ class Con extends React.Component {
         params: { appId },
       },
     } = this.props;
-    import('src/components/dialogSelectUser/dialogSelectUser').then(() => {
-      $({}).dialogSelectUser({
+    import('src/components/dialogSelectUser/dialogSelectUser').then(dialogSelectUser => {
+      dialogSelectUser.default({
         showMoreInvite: false,
         SelectUserSettings: {
           projectId,
@@ -149,7 +163,15 @@ class Con extends React.Component {
     });
   };
   render() {
-    const { isAdmin, appRole = {}, setQuickTag, isOwner } = this.props;
+    const {
+      canEditApp,
+      canEditUser,
+      appRole = {},
+      isOwner,
+      match: {
+        params: { appId },
+      },
+    } = this.props;
     const { notify, rolesVisibleConfig } = this.state;
     const { pageLoading } = appRole;
     if (pageLoading) {
@@ -159,15 +181,16 @@ class Con extends React.Component {
       <WrapCon className="flexColumn overflowHidden">
         <WrapHeader>
           <div className="tabCon InlineBlock pLeft26">
-            {conList
-              .filter(o => (isAdmin ? true : o.key === 'user'))
+            {getTabList()
+              .filter(o => (canEditApp ? true : o.key === 'user')) //是否有编辑权限
               .map(o => {
                 return (
                   <span
                     className={cx('tab Hand Font14 Bold', { cur: this.state.tab === o.key })}
                     onClick={() => {
                       this.props.handleChangePage(() => {
-                        setQuickTag();
+                        // setQuickTag();
+                        navigateTo(`/app/${appId}/role`);
                         this.setState({
                           tab: o.key,
                         });
@@ -179,7 +202,7 @@ class Con extends React.Component {
                 );
               })}
           </div>
-          {isAdmin && (
+          {(canEditApp || canEditUser) && (
             <div className="Right flexRow pTop20 pRight20">
               <Tooltip
                 text={
@@ -202,9 +225,7 @@ class Con extends React.Component {
               <Tooltip
                 text={
                   <span>
-                    {_l(
-                      '开启时，普通用户（非管理员）可以查看应用下所有角色和人员。关闭后，普通用户将只能看到应用管理员。',
-                    )}
+                    {_l('开启时，普通角色成员可以查看应用下所有角色和人员。关闭后，普通角色成员将只能看到系统角色。')}
                   </span>
                 }
                 popupPlacement={'top'}

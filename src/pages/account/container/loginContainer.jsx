@@ -109,10 +109,11 @@ export default class Container extends React.Component {
       }
     };
     if (!(openLDAP && isNetwork)) {
-      params.account = dialCode + account.trim();
+      params.account = encrypt(dialCode + account.trim());
       params.state = request.state;
       params.unionId = request.unionId;
       params.tpType = request.tpType;
+      params.regFrom = request.s;
       loginController.mDAccountLogin(params).then(data => {
         data.account = account;
         data.loginType = 0;
@@ -120,7 +121,8 @@ export default class Container extends React.Component {
       });
     } else {
       params.projectId = projectId;
-      params.userName = account;
+      params.userName = encrypt(account);
+      params.regFrom = request.s;
       loginController.lDAPLogin(params).then(data => {
         data.loginType = 1;
         cb(data);

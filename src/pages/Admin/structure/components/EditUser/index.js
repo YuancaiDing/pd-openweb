@@ -1,7 +1,6 @@
 import React, { Component, Fragment } from 'react';
 import { Icon, Input, LoadDiv } from 'ming-ui';
 import userController from 'src/api/user';
-import 'src/components/dialogSelectUser/dialogSelectUser';
 import intlTelInput from '@mdfe/intl-tel-input';
 import '@mdfe/intl-tel-input/build/css/intlTelInput.min.css';
 import utils from '@mdfe/intl-tel-input/build/js/utils';
@@ -114,6 +113,47 @@ export default class EditUser extends Component {
     const { errors = {} } = this.state;
     delete errors[field];
     this.setState({ errors });
+  };
+  agreeJoin = () => {
+    const { projectId, accountId, onClose = () => {} } = this.props;
+    const { jobIds = [], departmentInfos = [], jobNumber, workSiteId, contactPhone } = this.baseFormInfo.state;
+
+    userController
+      .agreeUserJoin({
+        projectId,
+        accountId,
+        jobIds,
+        departmentIds: departmentInfos.map(it => it.departmentId),
+        workSiteId,
+        jobNumber,
+        contactPhone,
+      })
+      .then(
+        result => {
+          if (result === 1) {
+            alert(_l('批准成功'));
+            onClose();
+            this.props.clickSave();
+          } else if (result === 4) {
+            const licenseType = _.get(
+              _.find(md.global.Account.projects, project => project.projectId === projectId) || {},
+              'licenseType',
+            );
+            let link = '';
+            if (licenseType === 0) {
+              link = <span>{_l('当前用户数已超出人数限制')}</span>;
+            } else {
+              link = <span>{_l('当前用户数已超出人数限制')}</span>;
+            }
+            alert(link, 3);
+          } else {
+            alert(_l('操作失败'), 2);
+          }
+        },
+        () => {
+          alert(_l('操作失败'), 2);
+        },
+      );
   };
   saveFn = () => {
     const { projectId, accountId } = this.props;
@@ -353,6 +393,7 @@ export default class EditUser extends Component {
                 departmentId={departmentId}
                 clickSave={this.props.clickSave}
                 saveFn={this.saveFn}
+                agreeJoin={this.agreeJoin}
                 onClose={onClose}
               />
             </Fragment>

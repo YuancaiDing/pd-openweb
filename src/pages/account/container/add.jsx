@@ -4,6 +4,7 @@ import cx from 'classnames';
 import RegisterController from 'src/api/register';
 import captcha from 'src/components/captcha';
 import { inputFocusFn, inputBlurFn } from '../util';
+import { Support } from 'ming-ui';
 export default class Add extends React.Component {
   constructor(props) {
     super(props);
@@ -158,6 +159,12 @@ export default class Add extends React.Component {
         <div className="title mTop24 Font20">{_l('请填写组织门牌号')}</div>
         <p className="mTop10 Gray_9e Font15">{_l('组织门牌号可以通过管理员获取')}</p>
         {this.renderCon()}
+        <Support
+          type={3}
+          href="https://help.mingdao.com/zh/zuzhiid.html"
+          text={_l('没有组织门牌号？')}
+          className="mTop16 InlineBlock"
+        />
         <span
           className="btnForRegister Hand mTop40"
           onClick={() => {
